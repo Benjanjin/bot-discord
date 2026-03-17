@@ -7,7 +7,6 @@ const {
 } = require('discord.js');
 
 // 1
-const TOKEN = "MTQ3NzA0NzcwNTQ4MDk4NjY0NA.G90cb3.366AvH2iHCNkL1cnjWv9vVHlhPuLlrKQC4VlTo"; 
 
 const CANAL_ROLES_ID = "1464335122005491745";
 const CANAL_TICKETS_ID = "1483516417583354108";
