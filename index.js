@@ -6,7 +6,7 @@ const {
     StringSelectMenuBuilder, StringSelectMenuOptionBuilder
 } = require('discord.js');
 
-// 1
+const TOKEN = process.env.TOKEN; // 👈 mover esta línea acá arriba
 
 const CANAL_ROLES_ID = "1464335122005491745";
 const CANAL_TICKETS_ID = "1483516417583354108";
@@ -245,4 +245,4 @@ if (customId === 'sug_si' || customId === 'sug_no') {
     }
 });
 
-const TOKEN = process.env.TOKEN;
+client.login(TOKEN);
