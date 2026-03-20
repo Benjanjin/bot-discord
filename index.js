@@ -1,5 +1,5 @@
 const votos = new Map();
-const { 
+const {  
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, 
     ButtonBuilder, ButtonStyle, Events, ChannelType, PermissionsBitField,
     ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
