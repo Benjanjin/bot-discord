@@ -80,7 +80,7 @@ client.once(Events.ClientReady, async () => {
     try { 
         // CAMBIA "ID_DE_TU_SERVIDOR" por la ID real para que salgan al instante
         await rest.put(
-            Routes.applicationGuildCommands(client.user.id, ""1459675438543540399), 
+            Routes.applicationGuildCommands(client.user.id, "1459675438543540399"), 
             { body: commands }
         );
         console.log("✅ Comandos registrados en el servidor.");
