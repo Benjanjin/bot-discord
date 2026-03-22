@@ -62,7 +62,7 @@ const client = new Client({
 client.once(Events.ClientReady, async () => {
     console.log(`✅ Bot iniciado como: ${client.user.tag}`);
 
-    // --- REGISTRO DE COMANDOS (ARREGLADO PARA QUE SALGAN) ---
+    // --- REGISTRO DE COMANDOS SEGURO ---
     const commands = [
         new SlashCommandBuilder().setName('sugerir').setDescription('Envía una sugerencia para el servidor'),
         new SlashCommandBuilder().setName('reclamar').setDescription('Reclama el ticket actual (Solo Staff)'),
@@ -74,13 +74,17 @@ client.once(Events.ClientReady, async () => {
         new SlashCommandBuilder().setName('top').setDescription('Mira el ranking de los más ricos'),
         new SlashCommandBuilder().setName('daily').setDescription('Reclama tu recompensa diaria'),
         new SlashCommandBuilder().setName('coinflip').setDescription('Apuesta a cara o cruz').addIntegerOption(o => o.setName('apuesta').setDescription('Cantidad').setRequired(true))
-    ].map(command => command.toJSON());
+    ].map(cmd => cmd.toJSON());
     
     const rest = new REST({ version: '10' }).setToken(TOKEN);
     try { 
-        await rest.put(Routes.applicationCommands(client.user.id), { body: commands }); 
-        console.log("✅ Comandos de economía y tickets registrados correctamente.");
-    } catch (e) { console.error("Error al registrar comandos:", e); }
+        // CAMBIA "ID_DE_TU_SERVIDOR" por la ID real para que salgan al instante
+        await rest.put(
+            Routes.applicationGuildCommands(client.user.id, ""1459675438543540399), 
+            { body: commands }
+        );
+        console.log("✅ Comandos registrados en el servidor.");
+    } catch (e) { console.error(e); }
 
     // --- SETUP CANAL DE ROLES ---
     try {
@@ -165,12 +169,11 @@ client.on(Events.InteractionCreate, async interaction => {
             return await interaction.showModal(modal);
         }
 
-        // Lógica de Economía nueva
         if (commandName === 'balance') {
             return interaction.reply(`💰 **${user.username}**, tienes: \`$${db[user.id].balance.toLocaleString()}\``);
         }
 
-        if (['pesca', 'minar', 'trabajar'].includes(commandName)) {
+        if (['pesca', 'minar', 'trabajar', 'daily'].includes(commandName)) {
             const ganado = Math.floor(Math.random() * 200) + 50;
             db[user.id].balance += ganado;
             guardarDB();
@@ -252,7 +255,7 @@ client.on(Events.InteractionCreate, async interaction => {
         await canalVal.send({ embeds: [embedVal] });
         staffAtendiendo.delete(interaction.channel.id);
         
-        // --- CAMBIO SOLICITADO: CIERRE EN 5 SEGUNDOS ---
+        // --- CIERRE EN 5 SEGUNDOS ---
         await interaction.reply({ content: "✅ ¡Gracias! Tu valoración ha sido enviada con éxito. El ticket se cerrará en 5 segundos.", flags: [64] });
         setTimeout(() => interaction.channel.delete().catch(() => {}), 5000); 
         return;
@@ -295,7 +298,7 @@ client.on(Events.InteractionCreate, async interaction => {
         let vSi = parseInt(interaction.message.components[0].components[0].label.split(' ')[0]);
         let vNo = parseInt(interaction.message.components[0].components[1].label.split(' ')[0]);
         const votoAnterior = votosMsg.get(userId);
-        if (votoAnterior === customId) return interaction.followUp({ content: "❌ Ya votaste eso.", flags: [64] });
+        if (votoAnterior === customId) return;
         if (votoAnterior === 'sug_si') vSi--;
         if (votoAnterior === 'sug_no') vNo--;
         if (customId === 'sug_si') vSi++;
@@ -316,21 +319,6 @@ client.on(Events.InteractionCreate, async interaction => {
         return await interaction.message.edit({ embeds: [nEmbed], components: [nFila, interaction.message.components[1]] });
     }
 
-    // ROLES
-    if (ROLES_CLASE[customId] || ROLES_NOTIF[customId]) {
-        await interaction.deferReply({ flags: [64] });
-        if (ROLES_CLASE[customId]) {
-            await member.roles.remove(Object.values(ROLES_CLASE).map(r => r.id)).catch(() => {});
-            await member.roles.add(ROLES_CLASE[customId].id);
-            return interaction.editReply(`✨ Ahora eres: **${ROLES_CLASE[customId].label}**`);
-        }
-        if (ROLES_NOTIF[customId]) {
-            const rId = ROLES_NOTIF[customId].id;
-            if (member.roles.cache.has(rId)) { await member.roles.remove(rId); return interaction.editReply(`🔕 Notificaciones quitadas.`); }
-            else { await member.roles.add(rId); return interaction.editReply(`🔔 Notificaciones activadas.`); }
-        }
-    }
-
     // STAFF RECLAMAR/CERRAR
     if (customId === "reclamar_tk") {
         if (!member.roles.cache.has(ROL_STAFF_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
@@ -343,13 +331,9 @@ client.on(Events.InteractionCreate, async interaction => {
         if (!member.roles.cache.has(ROL_STAFF_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
         const overwrite = channel.permissionOverwrites.cache.find(o => o.type === 1 && o.id !== ROL_STAFF_ID && o.id !== interaction.guild.id);
         const ownerId = overwrite ? overwrite.id : null;
-
         await interaction.reply("🔒 Cerrando ticket...");
-        
         if (ownerId) {
-            const btnVal = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`abrir_val_${ownerId}`).setLabel("Valorar atención (⭐)").setStyle(ButtonStyle.Primary)
-            );
+            const btnVal = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`abrir_val_${ownerId}`).setLabel("Valorar atención (⭐)").setStyle(ButtonStyle.Primary));
             await channel.send({ content: `<@${ownerId}>, por favor ayuda al staff dándoles una valoración:`, components: [btnVal] });
         }
         setTimeout(() => channel.delete().catch(() => {}), 60000); 
@@ -357,19 +341,8 @@ client.on(Events.InteractionCreate, async interaction => {
 
     if (customId.startsWith("abrir_val_")) {
         const ownerId = customId.split('_')[2];
-        if (interaction.user.id !== ownerId) return interaction.reply({ content: "❌ Solo el creador del ticket puede valorar.", flags: [64] });
-
-        const menuVal = new StringSelectMenuBuilder()
-            .setCustomId('menu_val_estrellas')
-            .setPlaceholder('¿Cuántas estrellas nos das?')
-            .addOptions(
-                { label: '5 Estrellas', emoji: '⭐', value: '5' },
-                { label: '4 Estrellas', emoji: '⭐', value: '4' },
-                { label: '3 Estrellas', emoji: '⭐', value: '3' },
-                { label: '2 Estrellas', emoji: '⭐', value: '2' },
-                { label: '1 Estrella', emoji: '⭐', value: '1' }
-            );
-
+        if (interaction.user.id !== ownerId) return;
+        const menuVal = new StringSelectMenuBuilder().setCustomId('menu_val_estrellas').setPlaceholder('¿Cuántas estrellas nos das?').addOptions({ label: '5 Estrellas', value: '5' }, { label: '1 Estrella', value: '1' });
         return interaction.reply({ content: "Selecciona tu puntuación:", components: [new ActionRowBuilder().addComponents(menuVal)], flags: [64] });
     }
 });
