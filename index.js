@@ -1,9 +1,11 @@
 const votos = new Map();
+const staffAtendiendo = new Map(); // Para rastrear qué staff atiende cada ticket
+
 const {  
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, 
     ButtonBuilder, ButtonStyle, Events, ChannelType, PermissionsBitField,
     ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
-    StringSelectMenuBuilder, StringSelectMenuOptionBuilder
+    StringSelectMenuBuilder, StringSelectMenuOptionBuilder, SlashCommandBuilder
 } = require('discord.js');
 
 const TOKEN = process.env.TOKEN; 
@@ -39,7 +41,12 @@ const client = new Client({
 client.once(Events.ClientReady, async () => {
     console.log(`✅ Bot iniciado como: ${client.user.tag}`);
 
-    const commands = [{ name: 'sugerir', description: 'Envía una sugerencia para el servidor' }];
+    const commands = [
+        { name: 'sugerir', description: 'Envía una sugerencia para el servidor' },
+        new SlashCommandBuilder().setName('reclamar').setDescription('Reclama el ticket actual (Solo Staff)'),
+        new SlashCommandBuilder().setName('claim').setDescription('Reclama el ticket actual (Solo Staff)')
+    ];
+    
     const rest = new REST({ version: '10' }).setToken(TOKEN);
     try { await rest.put(Routes.applicationCommands(client.user.id), { body: commands }); } catch (e) {}
 
@@ -107,12 +114,22 @@ client.once(Events.ClientReady, async () => {
 
 client.on(Events.InteractionCreate, async interaction => {
     
-    // SUGERENCIAS
-    if (interaction.isChatInputCommand() && interaction.commandName === 'sugerir') {
-        const modal = new ModalBuilder().setCustomId('modal_sugerencia').setTitle('Nueva Sugerencia');
-        const input = new TextInputBuilder().setCustomId('texto_sugerencia').setLabel("¿Cuál es tu sugerencia?").setStyle(TextInputStyle.Paragraph).setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(input));
-        return await interaction.showModal(modal);
+    // COMANDOS SLASH RECLAMAR / CLAIM
+    if (interaction.isChatInputCommand()) {
+        if (interaction.commandName === 'reclamar' || interaction.commandName === 'claim') {
+            if (!interaction.member.roles.cache.has(ROL_STAFF_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
+            if (!interaction.channel.name.includes('-')) return interaction.reply({ content: "❌ Este no es un canal de ticket.", flags: [64] });
+
+            staffAtendiendo.set(interaction.channel.id, interaction.user);
+            return interaction.reply({ embeds: [new EmbedBuilder().setDescription(`✅ El Staff **${interaction.user.tag}** ha reclamado este ticket.`).setColor("#57F287")] });
+        }
+
+        if (interaction.commandName === 'sugerir') {
+            const modal = new ModalBuilder().setCustomId('modal_sugerencia').setTitle('Nueva Sugerencia');
+            const input = new TextInputBuilder().setCustomId('texto_sugerencia').setLabel("¿Cuál es tu sugerencia?").setStyle(TextInputStyle.Paragraph).setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(input));
+            return await interaction.showModal(modal);
+        }
     }
 
     if (interaction.isModalSubmit() && interaction.customId === 'modal_sugerencia') {
@@ -144,11 +161,11 @@ client.on(Events.InteractionCreate, async interaction => {
         return await interaction.editReply({ content: `✅ Sugerencia enviada a <#${CANAL_SUGERENCIAS_ID}>` });
     }
 
-    // --- LÓGICA DE VALORACIONES (NUEVO) ---
+    // --- LÓGICA DE VALORACIONES ---
     if (interaction.isStringSelectMenu() && interaction.customId === 'menu_val_estrellas') {
         const estrellas = interaction.values[0];
         const modalVal = new ModalBuilder().setCustomId(`modal_val_${estrellas}`).setTitle('Valoración del Staff');
-        const inputVal = new TextInputBuilder().setCustomId('input_val').setLabel("Escribe tu opinión sobre la atención").setStyle(TextInputStyle.Paragraph).setRequired(true);
+        const inputVal = new TextInputBuilder().setCustomId('input_val').setLabel("Comentarios").setStyle(TextInputStyle.Paragraph).setRequired(true);
         modalVal.addComponents(new ActionRowBuilder().addComponents(inputVal));
         return await interaction.showModal(modalVal);
     }
@@ -156,22 +173,23 @@ client.on(Events.InteractionCreate, async interaction => {
     if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_val_')) {
         const estrellasNum = interaction.customId.split('_')[2];
         const comentario = interaction.fields.getTextInputValue('input_val');
-        const estrellasVisual = "⭐".repeat(parseInt(estrellasNum));
+        const staffObj = staffAtendiendo.get(interaction.channel.id) || { username: "No reclamado", id: "N/A" };
         const canalVal = await client.channels.fetch(CANAL_VALORACIONES_ID);
 
         const embedVal = new EmbedBuilder()
-            .setTitle("🌟 NUEVA VALORACIÓN RECIBIDA")
-            .setColor("#FFD700")
-            .setThumbnail(interaction.user.displayAvatarURL())
+            .setAuthor({ name: `• Valoración`, iconURL: interaction.guild.iconURL() })
+            .setDescription(`Ticket valorado por **${interaction.user.username}**`)
+            .setColor("#57F287")
             .addFields(
-                { name: "👤 Usuario", value: `${interaction.user}`, inline: true },
-                { name: "⭐ Puntuación", value: `${estrellasVisual}`, inline: true },
-                { name: "💬 Comentario", value: `\`\`\`${comentario}\`\`\`` }
-            )
-            .setFooter({ text: `Canal: ${interaction.channel.name}` })
-            .setTimestamp();
+                { name: "➡ Ticket", value: `# \`「🌟」${interaction.channel.name}\`\n(${interaction.channel.id})` },
+                { name: "➡ Panel", value: `Tickets` },
+                { name: "➡ Staff", value: `${staffObj.username} (${staffObj.id})` },
+                { name: "➡ Estrellas", value: `${estrellasNum}⭐` },
+                { name: "➡ Comentarios", value: `${comentario}` }
+            );
 
         await canalVal.send({ embeds: [embedVal] });
+        staffAtendiendo.delete(interaction.channel.id);
         return interaction.reply({ content: "✅ ¡Gracias! Tu valoración ha sido enviada con éxito.", flags: [64] });
     }
 
@@ -251,14 +269,13 @@ client.on(Events.InteractionCreate, async interaction => {
     // STAFF RECLAMAR/CERRAR
     if (customId === "reclamar_tk") {
         if (!member.roles.cache.has(ROL_STAFF_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
-        await interaction.update({ components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("reclamar_tk").setLabel("Atendido por " + user.username).setStyle(ButtonStyle.Success).setDisabled(true), new ButtonBuilder().setCustomId("cerrar_tk").setLabel("Cerrar").setStyle(ButtonStyle.Secondary))]});
+        staffAtendiendo.set(channel.id, user); 
+        await interaction.update({ components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("reclamado").setLabel("Atendido por " + user.username).setStyle(ButtonStyle.Success).setDisabled(true), new ButtonBuilder().setCustomId("cerrar_tk").setLabel("Cerrar").setStyle(ButtonStyle.Secondary))]});
         return channel.send({ embeds: [new EmbedBuilder().setDescription(`✅ El Staff **${user.tag}** se hará cargo.`).setColor("#57F287")] });
     }
 
     if (customId === "cerrar_tk") {
         if (!member.roles.cache.has(ROL_STAFF_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
-        
-        // Identificar al usuario que abrió el ticket
         const overwrite = channel.permissionOverwrites.cache.find(o => o.type === 1 && o.id !== ROL_STAFF_ID && o.id !== interaction.guild.id);
         const ownerId = overwrite ? overwrite.id : null;
 
@@ -270,11 +287,9 @@ client.on(Events.InteractionCreate, async interaction => {
             );
             await channel.send({ content: `<@${ownerId}>, por favor ayuda al staff dándoles una valoración:`, components: [btnVal] });
         }
-
-        setTimeout(() => channel.delete().catch(() => {}), 60000); // 60s para que de tiempo a valorar
+        setTimeout(() => channel.delete().catch(() => {}), 60000); 
     }
 
-    // BOTÓN ABRIR VALORACIÓN
     if (customId.startsWith("abrir_val_")) {
         const ownerId = customId.split('_')[2];
         if (interaction.user.id !== ownerId) return interaction.reply({ content: "❌ Solo el creador del ticket puede valorar.", flags: [64] });
