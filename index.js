@@ -62,12 +62,11 @@ const client = new Client({
 client.once(Events.ClientReady, async () => {
     console.log(`✅ Bot iniciado como: ${client.user.tag}`);
 
-    // --- REGISTRO DE COMANDOS (TUS ORIGINALES + ECONOMÍA) ---
+    // --- REGISTRO DE COMANDOS (ARREGLADO PARA QUE SALGAN) ---
     const commands = [
-        { name: 'sugerir', description: 'Envía una sugerencia para el servidor' },
+        new SlashCommandBuilder().setName('sugerir').setDescription('Envía una sugerencia para el servidor'),
         new SlashCommandBuilder().setName('reclamar').setDescription('Reclama el ticket actual (Solo Staff)'),
         new SlashCommandBuilder().setName('claim').setDescription('Reclama el ticket actual (Solo Staff)'),
-        // Comandos de Economía
         new SlashCommandBuilder().setName('balance').setDescription('Mira tu dinero actual'),
         new SlashCommandBuilder().setName('pesca').setDescription('Pesca para ganar dinero'),
         new SlashCommandBuilder().setName('minar').setDescription('Ve a la mina para ganar dinero'),
@@ -75,10 +74,13 @@ client.once(Events.ClientReady, async () => {
         new SlashCommandBuilder().setName('top').setDescription('Mira el ranking de los más ricos'),
         new SlashCommandBuilder().setName('daily').setDescription('Reclama tu recompensa diaria'),
         new SlashCommandBuilder().setName('coinflip').setDescription('Apuesta a cara o cruz').addIntegerOption(o => o.setName('apuesta').setDescription('Cantidad').setRequired(true))
-    ];
+    ].map(command => command.toJSON());
     
     const rest = new REST({ version: '10' }).setToken(TOKEN);
-    try { await rest.put(Routes.applicationCommands(client.user.id), { body: commands }); } catch (e) {}
+    try { 
+        await rest.put(Routes.applicationCommands(client.user.id), { body: commands }); 
+        console.log("✅ Comandos de economía y tickets registrados correctamente.");
+    } catch (e) { console.error("Error al registrar comandos:", e); }
 
     // --- SETUP CANAL DE ROLES ---
     try {
@@ -249,7 +251,11 @@ client.on(Events.InteractionCreate, async interaction => {
 
         await canalVal.send({ embeds: [embedVal] });
         staffAtendiendo.delete(interaction.channel.id);
-        return interaction.reply({ content: "✅ ¡Gracias! Tu valoración ha sido enviada con éxito.", flags: [64] });
+        
+        // --- CAMBIO SOLICITADO: CIERRE EN 5 SEGUNDOS ---
+        await interaction.reply({ content: "✅ ¡Gracias! Tu valoración ha sido enviada con éxito. El ticket se cerrará en 5 segundos.", flags: [64] });
+        setTimeout(() => interaction.channel.delete().catch(() => {}), 5000); 
+        return;
     }
 
     // --- CONTINUACIÓN TICKETS ---
