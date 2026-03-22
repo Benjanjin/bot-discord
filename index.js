@@ -1,13 +1,16 @@
 const votos = new Map();
 const staffAtendiendo = new Map(); 
+const cooldowns = new Map(); // Para los delays
 
 const {  
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, 
     ButtonBuilder, ButtonStyle, Events, ChannelType, PermissionsBitField,
     ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
-    StringSelectMenuBuilder, StringSelectMenuOptionBuilder, SlashCommandBuilder
+    StringSelectMenuBuilder, StringSelectMenuOptionBuilder, SlashCommandBuilder,
+    AttachmentBuilder
 } = require('discord.js');
-const fs = require('fs'); // Añadido para guardar dinero
+const fs = require('fs'); 
+const { createCanvas } = require('canvas'); // Librería de imagen
 
 // --- BASE DE DATOS DE ECONOMÍA ---
 const pathEco = './economia.json';
@@ -62,7 +65,6 @@ const client = new Client({
 client.once(Events.ClientReady, async () => {
     console.log(`✅ Bot iniciado como: ${client.user.tag}`);
 
-    // --- REGISTRO DE COMANDOS SEGURO ---
     const commands = [
         new SlashCommandBuilder().setName('sugerir').setDescription('Envía una sugerencia para el servidor'),
         new SlashCommandBuilder().setName('reclamar').setDescription('Reclama el ticket actual (Solo Staff)'),
@@ -78,7 +80,6 @@ client.once(Events.ClientReady, async () => {
     
     const rest = new REST({ version: '10' }).setToken(TOKEN);
     try { 
-        // CAMBIA "ID_DE_TU_SERVIDOR" por la ID real para que salgan al instante
         await rest.put(
             Routes.applicationGuildCommands(client.user.id, "1459675438543540399"), 
             { body: commands }
@@ -150,10 +151,20 @@ client.once(Events.ClientReady, async () => {
 
 client.on(Events.InteractionCreate, async interaction => {
     
-    // --- LÓGICA DE COMANDOS SLASH ---
     if (interaction.isChatInputCommand()) {
         const { commandName, user, options } = interaction;
         asegurarUsuario(user.id);
+
+        // --- SISTEMA DE DELAYS (60 segundos para eco) ---
+        const ecoCmds = ['pesca', 'minar', 'trabajar', 'coinflip'];
+        if (ecoCmds.includes(commandName)) {
+            const lastUse = cooldowns.get(`${user.id}-${commandName}`);
+            if (lastUse && Date.now() - lastUse < 60000) {
+                const restante = Math.ceil((60000 - (Date.now() - lastUse)) / 1000);
+                return interaction.reply({ content: `⏳ Espera **${restante}s** para volver a usar este comando.`, flags: [64] });
+            }
+            cooldowns.set(`${user.id}-${commandName}`, Date.now());
+        }
 
         if (commandName === 'reclamar' || commandName === 'claim') {
             if (!interaction.member.roles.cache.has(ROL_STAFF_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
@@ -169,11 +180,48 @@ client.on(Events.InteractionCreate, async interaction => {
             return await interaction.showModal(modal);
         }
 
+        // --- COMANDO BALANCE CON IMAGEN CANVAS ---
         if (commandName === 'balance') {
-            return interaction.reply(`💰 **${user.username}**, tienes: \`$${db[user.id].balance.toLocaleString()}\``);
+            await interaction.deferReply();
+            const canvas = createCanvas(700, 250);
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#8B0000';
+            ctx.lineWidth = 10;
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+            ctx.font = 'bold 35px sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(user.username.toUpperCase(), 50, 80);
+
+            ctx.font = '25px sans-serif';
+            ctx.fillStyle = '#aaaaaa';
+            ctx.fillText('BALANCE DE ECONOMÍA', 50, 130);
+
+            ctx.font = 'bold 60px sans-serif';
+            ctx.fillStyle = '#F1C40F';
+            ctx.fillText(`$${db[user.id].balance.toLocaleString()}`, 50, 200);
+
+            ctx.font = '80px sans-serif';
+            ctx.fillText('💰', 530, 170);
+
+            const attachment = new AttachmentBuilder(canvas.toBuffer(), { name: 'balance.png' });
+            return interaction.editReply({ files: [attachment] });
         }
 
         if (['pesca', 'minar', 'trabajar', 'daily'].includes(commandName)) {
+            // Delay especial para daily (24h)
+            if (commandName === 'daily') {
+                const lastDaily = db[user.id].daily || 0;
+                if (Date.now() - lastDaily < 86400000) {
+                    const resta = Math.ceil((86400000 - (Date.now() - lastDaily)) / 3600000);
+                    return interaction.reply({ content: `⏳ Ya reclamaste hoy. Vuelve en **${resta}h**.`, flags: [64] });
+                }
+                db[user.id].daily = Date.now();
+            }
+            
             const ganado = Math.floor(Math.random() * 200) + 50;
             db[user.id].balance += ganado;
             guardarDB();
@@ -225,7 +273,6 @@ client.on(Events.InteractionCreate, async interaction => {
         return await interaction.editReply({ content: `✅ Sugerencia enviada a <#${CANAL_SUGERENCIAS_ID}>` });
     }
 
-    // --- LÓGICA DE VALORACIONES ---
     if (interaction.isStringSelectMenu() && interaction.customId === 'menu_val_estrellas') {
         const estrellas = interaction.values[0];
         const modalVal = new ModalBuilder().setCustomId(`modal_val_${estrellas}`).setTitle('Valoración del Staff');
@@ -255,13 +302,11 @@ client.on(Events.InteractionCreate, async interaction => {
         await canalVal.send({ embeds: [embedVal] });
         staffAtendiendo.delete(interaction.channel.id);
         
-        // --- CIERRE EN 5 SEGUNDOS ---
         await interaction.reply({ content: "✅ ¡Gracias! Tu valoración ha sido enviada con éxito. El ticket se cerrará en 5 segundos.", flags: [64] });
         setTimeout(() => interaction.channel.delete().catch(() => {}), 5000); 
         return;
     }
 
-    // --- CONTINUACIÓN TICKETS ---
     if (interaction.isStringSelectMenu() && interaction.customId === 'menu_tickets') {
         await interaction.deferReply({ flags: [64] });
         const ticketTipos = { "tk_soporte": "soporte-dudas", "tk_apelacion": "apelacion", "tk_reporte_staff": "reporte-staff", "tk_postulacion": "postulaciones" };
@@ -288,7 +333,6 @@ client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isButton()) return;
     const { customId, member, channel, user } = interaction;
 
-    // VOTOS
     if (customId === 'sug_si' || customId === 'sug_no') {
         await interaction.deferUpdate();
         const msgId = interaction.message.id;
@@ -319,7 +363,6 @@ client.on(Events.InteractionCreate, async interaction => {
         return await interaction.message.edit({ embeds: [nEmbed], components: [nFila, interaction.message.components[1]] });
     }
 
-    // STAFF RECLAMAR/CERRAR
     if (customId === "reclamar_tk") {
         if (!member.roles.cache.has(ROL_STAFF_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
         staffAtendiendo.set(channel.id, user); 
