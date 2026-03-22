@@ -6,6 +6,8 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.14.1"
+    "discord.js": "^14.x.x",
+    "canvas": "^2.11.2",
+    "fs": "^0.0.1-security"
   }
 }
