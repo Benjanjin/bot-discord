@@ -1,3 +1,7 @@
+// --- CONFIGURACIÓN DE CANVAS Y FUENTES ---
+const { createCanvas, registerFont } = require('canvas'); 
+registerFont('./Bungee-Regular.ttf', { family: 'Bungee' });
+
 const votos = new Map();
 const staffAtendiendo = new Map(); 
 const cooldowns = new Map(); // Para los delays
@@ -10,7 +14,6 @@ const {
     AttachmentBuilder
 } = require('discord.js'); 
 const fs = require('fs'); 
-const { createCanvas } = require('canvas'); // Librería de imagen
 
 // --- BASE DE DATOS DE ECONOMÍA ---
 const pathEco = './economia.json';
@@ -180,7 +183,7 @@ client.on(Events.InteractionCreate, async interaction => {
             return await interaction.showModal(modal);
         }
 
-        // --- COMANDO BALANCE CON IMAGEN CANVAS ---
+        // --- COMANDO BALANCE CON IMAGEN CANVAS (ACTUALIZADO CON FUENTE BUNGEE) ---
         if (commandName === 'balance') {
             await interaction.deferReply();
             const canvas = createCanvas(700, 250);
@@ -192,19 +195,20 @@ client.on(Events.InteractionCreate, async interaction => {
             ctx.lineWidth = 10;
             ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
-            ctx.font = 'bold 35px sans-serif';
+            // Usamos la fuente Bungee registrada al inicio
+            ctx.font = '35px "Bungee"'; 
             ctx.fillStyle = '#ffffff';
             ctx.fillText(user.username.toUpperCase(), 50, 80);
 
-            ctx.font = '25px sans-serif';
+            ctx.font = '22px "Bungee"'; 
             ctx.fillStyle = '#aaaaaa';
             ctx.fillText('BALANCE DE ECONOMÍA', 50, 130);
 
-            ctx.font = 'bold 60px sans-serif';
+            ctx.font = '60px "Bungee"'; 
             ctx.fillStyle = '#F1C40F';
             ctx.fillText(`$${db[user.id].balance.toLocaleString()}`, 50, 200);
 
-            ctx.font = '80px sans-serif';
+            ctx.font = '80px sans-serif'; // Emojis se mantienen en sans-serif
             ctx.fillText('💰', 530, 170);
 
             const attachment = new AttachmentBuilder(canvas.toBuffer(), { name: 'balance.png' });
