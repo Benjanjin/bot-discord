@@ -8,7 +8,7 @@ const {
     ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
     StringSelectMenuBuilder, StringSelectMenuOptionBuilder, SlashCommandBuilder,
     AttachmentBuilder
-} = require('discord.js');
+} = require('discord.js'); 
 const fs = require('fs'); 
 const { createCanvas } = require('canvas'); // Librería de imagen
 
