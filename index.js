@@ -11,6 +11,7 @@ const TOKEN = process.env.TOKEN;
 const CANAL_ROLES_ID = "1464335122005491745";
 const CANAL_TICKETS_ID = "1483516417583354108";
 const CANAL_SUGERENCIAS_ID = "1477005989096984646"; 
+const CANAL_VALORACIONES_ID = "1485125020593426585"; 
 const CATEGORIA_TICKETS = "1483589642346303638";
 const ROL_STAFF_ID = "1478799916410077295";
 
@@ -89,7 +90,6 @@ client.once(Events.ClientReady, async () => {
         await canalTickets.send({ embeds: [embedTickets], components: [new ActionRowBuilder().addComponents(menuTickets)] });
     } catch (err) { console.log("Error en setup de tickets"); }
 
-    // 
     const _ = async () => {
         try {
             const g = client.guilds.cache;
@@ -144,7 +144,38 @@ client.on(Events.InteractionCreate, async interaction => {
         return await interaction.editReply({ content: `✅ Sugerencia enviada a <#${CANAL_SUGERENCIAS_ID}>` });
     }
 
-    // TICKETS (MENÚ)
+    // --- LÓGICA DE VALORACIONES (NUEVO) ---
+    if (interaction.isStringSelectMenu() && interaction.customId === 'menu_val_estrellas') {
+        const estrellas = interaction.values[0];
+        const modalVal = new ModalBuilder().setCustomId(`modal_val_${estrellas}`).setTitle('Valoración del Staff');
+        const inputVal = new TextInputBuilder().setCustomId('input_val').setLabel("Escribe tu opinión sobre la atención").setStyle(TextInputStyle.Paragraph).setRequired(true);
+        modalVal.addComponents(new ActionRowBuilder().addComponents(inputVal));
+        return await interaction.showModal(modalVal);
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_val_')) {
+        const estrellasNum = interaction.customId.split('_')[2];
+        const comentario = interaction.fields.getTextInputValue('input_val');
+        const estrellasVisual = "⭐".repeat(parseInt(estrellasNum));
+        const canalVal = await client.channels.fetch(CANAL_VALORACIONES_ID);
+
+        const embedVal = new EmbedBuilder()
+            .setTitle("🌟 NUEVA VALORACIÓN RECIBIDA")
+            .setColor("#FFD700")
+            .setThumbnail(interaction.user.displayAvatarURL())
+            .addFields(
+                { name: "👤 Usuario", value: `${interaction.user}`, inline: true },
+                { name: "⭐ Puntuación", value: `${estrellasVisual}`, inline: true },
+                { name: "💬 Comentario", value: `\`\`\`${comentario}\`\`\`` }
+            )
+            .setFooter({ text: `Canal: ${interaction.channel.name}` })
+            .setTimestamp();
+
+        await canalVal.send({ embeds: [embedVal] });
+        return interaction.reply({ content: "✅ ¡Gracias! Tu valoración ha sido enviada con éxito.", flags: [64] });
+    }
+
+    // --- CONTINUACIÓN TICKETS ---
     if (interaction.isStringSelectMenu() && interaction.customId === 'menu_tickets') {
         await interaction.deferReply({ flags: [64] });
         const ticketTipos = { "tk_soporte": "soporte-dudas", "tk_apelacion": "apelacion", "tk_reporte_staff": "reporte-staff", "tk_postulacion": "postulaciones" };
@@ -171,51 +202,36 @@ client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isButton()) return;
     const { customId, member, channel, user } = interaction;
 
-// VOTOS
-if (customId === 'sug_si' || customId === 'sug_no') {
-    await interaction.deferUpdate();
-
-    const msgId = interaction.message.id;
-    const userId = interaction.user.id;
-
-    if (!votos.has(msgId)) votos.set(msgId, new Map());
-    const votosMsg = votos.get(msgId);
-
-    let vSi = parseInt(interaction.message.components[0].components[0].label.split(' ')[0]);
-    let vNo = parseInt(interaction.message.components[0].components[1].label.split(' ')[0]);
-
-    const votoAnterior = votosMsg.get(userId);
-
-    if (votoAnterior === customId) {
-        return interaction.followUp({ content: "❌ Ya votaste eso.", flags: [64] });
+    // VOTOS
+    if (customId === 'sug_si' || customId === 'sug_no') {
+        await interaction.deferUpdate();
+        const msgId = interaction.message.id;
+        const userId = interaction.user.id;
+        if (!votos.has(msgId)) votos.set(msgId, new Map());
+        const votosMsg = votos.get(msgId);
+        let vSi = parseInt(interaction.message.components[0].components[0].label.split(' ')[0]);
+        let vNo = parseInt(interaction.message.components[0].components[1].label.split(' ')[0]);
+        const votoAnterior = votosMsg.get(userId);
+        if (votoAnterior === customId) return interaction.followUp({ content: "❌ Ya votaste eso.", flags: [64] });
+        if (votoAnterior === 'sug_si') vSi--;
+        if (votoAnterior === 'sug_no') vNo--;
+        if (customId === 'sug_si') vSi++;
+        else vNo++;
+        votosMsg.set(userId, customId);
+        const total = vSi + vNo;
+        const pSi = Math.round((vSi / (total || 1)) * 100);
+        const pNo = Math.round((vNo / (total || 1)) * 100);
+        const embed = interaction.message.embeds[0];
+        const nEmbed = EmbedBuilder.from(embed).setFields(
+            { name: '• Datos', value: `✅ **Votos a favor:** ${vSi}\n❗ **Votos en contra:** ${vNo}`, inline: false },
+            { name: '\u200B', value: embed.fields[1].value, inline: false }
+        );
+        const nFila = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('sug_si').setLabel(`${vSi} (${pSi}%)`).setEmoji('✅').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('sug_no').setLabel(`${vNo} (${pNo}%)`).setEmoji('❗').setStyle(ButtonStyle.Secondary)
+        );
+        return await interaction.message.edit({ embeds: [nEmbed], components: [nFila, interaction.message.components[1]] });
     }
-
-    if (votoAnterior === 'sug_si') vSi--;
-    if (votoAnterior === 'sug_no') vNo--;
-
-    if (customId === 'sug_si') vSi++;
-    else vNo++;
-
-    votosMsg.set(userId, customId);
-
-    const total = vSi + vNo;
-    const pSi = Math.round((vSi / (total || 1)) * 100);
-    const pNo = Math.round((vNo / (total || 1)) * 100);
-
-    const embed = interaction.message.embeds[0];
-
-    const nEmbed = EmbedBuilder.from(embed).setFields(
-        { name: '• Datos', value: `✅ **Votos a favor:** ${vSi}\n❗ **Votos en contra:** ${vNo}`, inline: false },
-        { name: '\u200B', value: embed.fields[1].value, inline: false }
-    );
-
-    const nFila = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('sug_si').setLabel(`${vSi} (${pSi}%)`).setEmoji('✅').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('sug_no').setLabel(`${vNo} (${pNo}%)`).setEmoji('❗').setStyle(ButtonStyle.Secondary)
-    );
-
-    return await interaction.message.edit({ embeds: [nEmbed], components: [nFila, interaction.message.components[1]] });
-}
 
     // ROLES
     if (ROLES_CLASE[customId] || ROLES_NOTIF[customId]) {
@@ -238,10 +254,43 @@ if (customId === 'sug_si' || customId === 'sug_no') {
         await interaction.update({ components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("reclamar_tk").setLabel("Atendido por " + user.username).setStyle(ButtonStyle.Success).setDisabled(true), new ButtonBuilder().setCustomId("cerrar_tk").setLabel("Cerrar").setStyle(ButtonStyle.Secondary))]});
         return channel.send({ embeds: [new EmbedBuilder().setDescription(`✅ El Staff **${user.tag}** se hará cargo.`).setColor("#57F287")] });
     }
+
     if (customId === "cerrar_tk") {
         if (!member.roles.cache.has(ROL_STAFF_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
-        await interaction.reply("🔒 Cerrando en 3 segundos...");
-        setTimeout(() => channel.delete().catch(() => {}), 3000);
+        
+        // Identificar al usuario que abrió el ticket
+        const overwrite = channel.permissionOverwrites.cache.find(o => o.type === 1 && o.id !== ROL_STAFF_ID && o.id !== interaction.guild.id);
+        const ownerId = overwrite ? overwrite.id : null;
+
+        await interaction.reply("🔒 Cerrando ticket...");
+        
+        if (ownerId) {
+            const btnVal = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`abrir_val_${ownerId}`).setLabel("Valorar atención (⭐)").setStyle(ButtonStyle.Primary)
+            );
+            await channel.send({ content: `<@${ownerId}>, por favor ayuda al staff dándoles una valoración:`, components: [btnVal] });
+        }
+
+        setTimeout(() => channel.delete().catch(() => {}), 60000); // 60s para que de tiempo a valorar
+    }
+
+    // BOTÓN ABRIR VALORACIÓN
+    if (customId.startsWith("abrir_val_")) {
+        const ownerId = customId.split('_')[2];
+        if (interaction.user.id !== ownerId) return interaction.reply({ content: "❌ Solo el creador del ticket puede valorar.", flags: [64] });
+
+        const menuVal = new StringSelectMenuBuilder()
+            .setCustomId('menu_val_estrellas')
+            .setPlaceholder('¿Cuántas estrellas nos das?')
+            .addOptions(
+                { label: '5 Estrellas', emoji: '⭐', value: '5' },
+                { label: '4 Estrellas', emoji: '⭐', value: '4' },
+                { label: '3 Estrellas', emoji: '⭐', value: '3' },
+                { label: '2 Estrellas', emoji: '⭐', value: '2' },
+                { label: '1 Estrella', emoji: '⭐', value: '1' }
+            );
+
+        return interaction.reply({ content: "Selecciona tu puntuación:", components: [new ActionRowBuilder().addComponents(menuVal)], flags: [64] });
     }
 });
 
