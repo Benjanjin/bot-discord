@@ -45,10 +45,10 @@ const CATEGORIA_TICKETS = "1483589642346303638";
 const ROL_STAFF_ID = "1478799916410077295";
 
 const ROLES_CLASE = {
-    class_pvp: { id: "1464335696390263069", label: "PvP", emoji: "⚔️" },
-    class_builder: { id: "1464335639561506878", label: "Builder", emoji: "⚒️" },
-    class_redstone: { id: "1464335746944209161", label: "Tecnico", emoji: "⚙️" },
-    class_estratega: { id: "1464335746856128737", label: "Casual", emoji: "🏛️" }
+    class_pvp: { id: "1464335696390263069", label: "PVP", emoji: "⚔️" },
+    class_builder: { id: "1464335639561506878", label: "BUILDER", emoji: "⚒️" },
+    class_redstone: { id: "1464335746944209161", label: "TECNICO", emoji: "⚙️" },
+    class_estratega: { id: "1464335746856128737", label: "CASUAL", emoji: "🏛️" }
 };
 
 const ROLES_NOTIF = {
@@ -158,7 +158,6 @@ client.on(Events.InteractionCreate, async interaction => {
         const { commandName, user, options } = interaction;
         asegurarUsuario(user.id);
 
-        // --- SISTEMA DE DELAYS (60 segundos para eco) ---
         const ecoCmds = ['pesca', 'minar', 'trabajar', 'coinflip'];
         if (ecoCmds.includes(commandName)) {
             const lastUse = cooldowns.get(`${user.id}-${commandName}`);
@@ -183,7 +182,6 @@ client.on(Events.InteractionCreate, async interaction => {
             return await interaction.showModal(modal);
         }
 
-        // --- COMANDO BALANCE CON IMAGEN CANVAS (ACTUALIZADO CON FUENTE BUNGEE) ---
         if (commandName === 'balance') {
             await interaction.deferReply();
             const canvas = createCanvas(700, 250);
@@ -195,7 +193,6 @@ client.on(Events.InteractionCreate, async interaction => {
             ctx.lineWidth = 10;
             ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
-            // Usamos la fuente Bungee registrada al inicio
             ctx.font = '35px "Bungee"'; 
             ctx.fillStyle = '#ffffff';
             ctx.fillText(user.username.toUpperCase(), 50, 80);
@@ -208,7 +205,7 @@ client.on(Events.InteractionCreate, async interaction => {
             ctx.fillStyle = '#F1C40F';
             ctx.fillText(`$${db[user.id].balance.toLocaleString()}`, 50, 200);
 
-            ctx.font = '80px sans-serif'; // Emojis se mantienen en sans-serif
+            ctx.font = '80px sans-serif'; 
             ctx.fillText('💰', 530, 170);
 
             const attachment = new AttachmentBuilder(canvas.toBuffer(), { name: 'balance.png' });
@@ -216,7 +213,6 @@ client.on(Events.InteractionCreate, async interaction => {
         }
 
         if (['pesca', 'minar', 'trabajar', 'daily'].includes(commandName)) {
-            // Delay especial para daily (24h)
             if (commandName === 'daily') {
                 const lastDaily = db[user.id].daily || 0;
                 if (Date.now() - lastDaily < 86400000) {
@@ -337,6 +333,48 @@ client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isButton()) return;
     const { customId, member, channel, user } = interaction;
 
+    // --- NUEVA LÓGICA DE APODOS PARA ROLES ---
+    if (ROLES_CLASE[customId]) {
+        await interaction.deferReply({ flags: [64] });
+        const rolData = ROLES_CLASE[customId];
+        const tieneRol = member.roles.cache.has(rolData.id);
+
+        try {
+            if (tieneRol) {
+                await member.roles.remove(rolData.id);
+                // Si se quita el rol, limpiamos el apodo (quitamos el prefijo si existe)
+                let nuevoNick = member.displayName;
+                Object.values(ROLES_CLASE).forEach(r => {
+                    nuevoNick = nuevoNick.replace(`${r.label} | `, "");
+                });
+                if (member.nickname !== nuevoNick) await member.setNickname(nuevoNick === user.username ? null : nuevoNick).catch(() => {});
+                return interaction.editReply(`❌ Rol **${rolData.label}** quitado y apodo restaurado.`);
+            } else {
+                // Quitamos otros roles de clase primero para no acumular etiquetas
+                for (const r of Object.values(ROLES_CLASE)) {
+                    if (member.roles.cache.has(r.id)) await member.roles.remove(r.id);
+                }
+                
+                await member.roles.add(rolData.id);
+                
+                // Limpiar cualquier etiqueta previa antes de poner la nueva
+                let nombreBase = member.displayName;
+                Object.values(ROLES_CLASE).forEach(r => {
+                    nombreBase = nombreBase.replace(`${r.label} | `, "");
+                });
+
+                const apodoConRol = `${rolData.label} | ${nombreBase}`;
+                // Solo intentamos cambiar si tenemos permisos (el bot no puede cambiar al Dueño)
+                await member.setNickname(apodoConRol.substring(0, 32)).catch(() => {});
+                
+                return interaction.editReply(`✅ Ahora eres **${rolData.label}** y tu apodo ha sido actualizado.`);
+            }
+        } catch (e) {
+            console.error(e);
+            return interaction.editReply("❌ No pude actualizar tu apodo.");
+        }
+    }
+
     if (customId === 'sug_si' || customId === 'sug_no') {
         await interaction.deferUpdate();
         const msgId = interaction.message.id;
@@ -365,6 +403,18 @@ client.on(Events.InteractionCreate, async interaction => {
             new ButtonBuilder().setCustomId('sug_no').setLabel(`${vNo} (${pNo}%)`).setEmoji('❗').setStyle(ButtonStyle.Secondary)
         );
         return await interaction.message.edit({ embeds: [nEmbed], components: [nFila, interaction.message.components[1]] });
+    }
+
+    if (ROLES_NOTIF[customId]) {
+        await interaction.deferReply({ flags: [64] });
+        const rId = ROLES_NOTIF[customId].id;
+        if (member.roles.cache.has(rId)) {
+            await member.roles.remove(rId);
+            return interaction.editReply(`❌ Rol de notificación **${ROLES_NOTIF[customId].label}** quitado.`);
+        } else {
+            await member.roles.add(rId);
+            return interaction.editReply(`✅ Rol de notificación **${ROLES_NOTIF[customId].label}** añadido.`);
+        }
     }
 
     if (customId === "reclamar_tk") {
