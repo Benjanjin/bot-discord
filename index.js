@@ -41,8 +41,10 @@ const CANAL_ROLES_ID = "1464335122005491745";
 const CANAL_TICKETS_ID = "1483516417583354108";
 const CANAL_SUGERENCIAS_ID = "1477005989096984646"; 
 const CANAL_VALORACIONES_ID = "1485125020593426585"; 
+const CANAL_TRANSCRIPTS_ID = "1485804232870461520"; // ID Canal Transcripts
 const CATEGORIA_TICKETS = "1483589642346303638";
 const ROL_STAFF_ID = "1478799916410077295";
+const ROL_ADICIONAL_ID = "1480750004309332040"; // Rol adicional tickets
 
 const ROLES_CLASE = {
     class_pvp: { id: "1464335696390263069", label: "PVP", emoji: "⚔️" },
@@ -179,7 +181,7 @@ client.on(Events.InteractionCreate, async interaction => {
         }
 
         if (commandName === 'reclamar' || commandName === 'claim') {
-            if (!interaction.member.roles.cache.has(ROL_STAFF_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
+            if (!interaction.member.roles.cache.has(ROL_STAFF_ID) && !interaction.member.roles.cache.has(ROL_ADICIONAL_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
             if (!interaction.channel.name.includes('-')) return interaction.reply({ content: "❌ Este no es un canal de ticket.", flags: [64] });
             staffAtendiendo.set(interaction.channel.id, interaction.user);
             return interaction.reply({ embeds: [new EmbedBuilder().setDescription(`✅ El Staff **${interaction.user.tag}** ha reclamado este ticket.`).setColor("#57F287")] });
@@ -295,8 +297,16 @@ client.on(Events.InteractionCreate, async interaction => {
         const estrellasNum = interaction.customId.split('_')[2];
         const comentario = interaction.fields.getTextInputValue('input_val');
         const staffObj = staffAtendiendo.get(interaction.channel.id) || { username: "No reclamado", id: "N/A" };
-        const canalVal = await client.channels.fetch(CANAL_VALORACIONES_ID);
+        
+        // --- TRANSCRIPT TXT ---
+        const msgs = await interaction.channel.messages.fetch({ limit: 100 });
+        let content = `Transcript de ${interaction.channel.name}\nAtendido por: ${staffObj.username}\n\n`;
+        msgs.reverse().forEach(m => { content += `[${m.createdAt.toLocaleString()}] ${m.author.tag}: ${m.content}\n`; });
+        const transcriptFile = new AttachmentBuilder(Buffer.from(content), { name: `transcript-${interaction.channel.name}.txt` });
+        const canalTrans = await client.channels.fetch(CANAL_TRANSCRIPTS_ID);
+        await canalTrans.send({ content: `📝 Transcript del ticket **${interaction.channel.name}**`, files: [transcriptFile] });
 
+        const canalVal = await client.channels.fetch(CANAL_VALORACIONES_ID);
         const embedVal = new EmbedBuilder()
             .setAuthor({ name: `• Valoración`, iconURL: interaction.guild.iconURL() })
             .setDescription(`Ticket valorado por **${interaction.user.username}**`)
@@ -305,7 +315,7 @@ client.on(Events.InteractionCreate, async interaction => {
                 { name: "➡ Ticket", value: `# \`「🌟」${interaction.channel.name}\`\n(${interaction.channel.id})` },
                 { name: "➡ Panel", value: `Tickets` },
                 { name: "➡ Staff", value: `${staffObj.username} (${staffObj.id})` },
-                { name: "➡ Estrellas", value: `${estrellasNum}⭐` },
+                { name: "➡ Estrellas", value: "⭐".repeat(parseInt(estrellasNum)) },
                 { name: "➡ Comentarios", value: `${comentario}` }
             );
 
@@ -328,7 +338,8 @@ client.on(Events.InteractionCreate, async interaction => {
             permissionOverwrites: [
                 { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                 { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles] },
-                { id: ROL_STAFF_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+                { id: ROL_STAFF_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+                { id: ROL_ADICIONAL_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
             ]
         });
         const eTk = new EmbedBuilder().setTitle(`🎫 TICKET: ${tipo.toUpperCase()}`).setDescription(`Hola ${interaction.user}, el Staff te atenderá pronto.`).setColor("#2ECC71");
@@ -336,7 +347,7 @@ client.on(Events.InteractionCreate, async interaction => {
             new ButtonBuilder().setCustomId("reclamar_tk").setLabel("Reclamar").setEmoji("👤").setStyle(ButtonStyle.Success),
             new ButtonBuilder().setCustomId("cerrar_tk").setLabel("Cerrar").setEmoji("🔒").setStyle(ButtonStyle.Secondary)
         );
-        await tChannel.send({ content: `<@&${ROL_STAFF_ID}>`, embeds: [eTk], components: [fTk] });
+        await tChannel.send({ content: `<@&${ROL_STAFF_ID}> <@&${ROL_ADICIONAL_ID}>`, embeds: [eTk], components: [fTk] });
         return interaction.editReply(`✅ Ticket creado: ${tChannel}`);
     }
 
@@ -424,15 +435,15 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 
     if (customId === "reclamar_tk") {
-        if (!member.roles.cache.has(ROL_STAFF_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
+        if (!member.roles.cache.has(ROL_STAFF_ID) && !member.roles.cache.has(ROL_ADICIONAL_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
         staffAtendiendo.set(channel.id, user); 
         await interaction.update({ components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("reclamado").setLabel("Atendido por " + user.username).setStyle(ButtonStyle.Success).setDisabled(true), new ButtonBuilder().setCustomId("cerrar_tk").setLabel("Cerrar").setStyle(ButtonStyle.Secondary))]});
         return channel.send({ embeds: [new EmbedBuilder().setDescription(`✅ El Staff **${user.tag}** se hará cargo.`).setColor("#57F287")] });
     }
 
     if (customId === "cerrar_tk") {
-        if (!member.roles.cache.has(ROL_STAFF_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
-        const overwrite = channel.permissionOverwrites.cache.find(o => o.type === 1 && o.id !== ROL_STAFF_ID && o.id !== interaction.guild.id);
+        if (!member.roles.cache.has(ROL_STAFF_ID) && !member.roles.cache.has(ROL_ADICIONAL_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
+        const overwrite = channel.permissionOverwrites.cache.find(o => o.type === 1 && o.id !== ROL_STAFF_ID && o.id !== ROL_ADICIONAL_ID && o.id !== interaction.guild.id);
         const ownerId = overwrite ? overwrite.id : null;
         await interaction.reply("🔒 Cerrando ticket...");
         if (ownerId) {
@@ -445,7 +456,13 @@ client.on(Events.InteractionCreate, async interaction => {
     if (customId.startsWith("abrir_val_")) {
         const ownerId = customId.split('_')[2];
         if (interaction.user.id !== ownerId) return;
-        const menuVal = new StringSelectMenuBuilder().setCustomId('menu_val_estrellas').setPlaceholder('¿Cuántas estrellas nos das?').addOptions({ label: '5 Estrellas', value: '5' }, { label: '1 Estrella', value: '1' });
+        const menuVal = new StringSelectMenuBuilder().setCustomId('menu_val_estrellas').setPlaceholder('¿Cuántas estrellas nos das?').addOptions(
+            { label: '⭐⭐⭐⭐⭐ (5)', value: '5' },
+            { label: '⭐⭐⭐⭐ (4)', value: '4' },
+            { label: '⭐⭐⭐ (3)', value: '3' },
+            { label: '⭐⭐ (2)', value: '2' },
+            { label: '⭐ (1)', value: '1' }
+        );
         return interaction.reply({ content: "Selecciona tu puntuación:", components: [new ActionRowBuilder().addComponents(menuVal)], flags: [64] });
     }
 });
