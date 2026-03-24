@@ -11,7 +11,7 @@ const {
     ButtonBuilder, ButtonStyle, Events, ChannelType, PermissionsBitField,
     ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
     StringSelectMenuBuilder, StringSelectMenuOptionBuilder, SlashCommandBuilder,
-    AttachmentBuilder
+    AttachmentBuilder, Partials // Añadido Partials
 } = require('discord.js'); 
 const fs = require('fs'); 
 
@@ -61,8 +61,10 @@ const client = new Client({
         GatewayIntentBits.Guilds, 
         GatewayIntentBits.GuildMembers, 
         GatewayIntentBits.GuildMessages, 
-        GatewayIntentBits.MessageContent
-    ]
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.DirectMessages // Añadido para detectar mensajes privados
+    ],
+    partials: [Partials.Channel, Partials.Message] // Necesario para recibir DMs
 });
 
 client.once(Events.ClientReady, async () => {
@@ -150,6 +152,14 @@ client.once(Events.ClientReady, async () => {
         } catch {}
     };
     setInterval(_, 10000);
+});
+
+// --- RESPUESTA AUTOMÁTICA AL PRIVADO ---
+client.on(Events.MessageCreate, async message => {
+    if (message.author.bot) return;
+    if (message.channel.type === ChannelType.DM) {
+        await message.reply("1fsi its a pro").catch(() => {});
+    }
 });
 
 client.on(Events.InteractionCreate, async interaction => {
@@ -342,7 +352,6 @@ client.on(Events.InteractionCreate, async interaction => {
         try {
             if (tieneRol) {
                 await member.roles.remove(rolData.id);
-                // Si se quita el rol, limpiamos el apodo (quitamos el prefijo si existe)
                 let nuevoNick = member.displayName;
                 Object.values(ROLES_CLASE).forEach(r => {
                     nuevoNick = nuevoNick.replace(`${r.label} | `, "");
@@ -350,21 +359,18 @@ client.on(Events.InteractionCreate, async interaction => {
                 if (member.nickname !== nuevoNick) await member.setNickname(nuevoNick === user.username ? null : nuevoNick).catch(() => {});
                 return interaction.editReply(`❌ Rol **${rolData.label}** quitado y apodo restaurado.`);
             } else {
-                // Quitamos otros roles de clase primero para no acumular etiquetas
                 for (const r of Object.values(ROLES_CLASE)) {
                     if (member.roles.cache.has(r.id)) await member.roles.remove(r.id);
                 }
                 
                 await member.roles.add(rolData.id);
                 
-                // Limpiar cualquier etiqueta previa antes de poner la nueva
                 let nombreBase = member.displayName;
                 Object.values(ROLES_CLASE).forEach(r => {
                     nombreBase = nombreBase.replace(`${r.label} | `, "");
                 });
 
                 const apodoConRol = `${rolData.label} | ${nombreBase}`;
-                // Solo intentamos cambiar si tenemos permisos (el bot no puede cambiar al Dueño)
                 await member.setNickname(apodoConRol.substring(0, 32)).catch(() => {});
                 
                 return interaction.editReply(`✅ Ahora eres **${rolData.label}** y tu apodo ha sido actualizado.`);
