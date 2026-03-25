@@ -104,7 +104,7 @@ client.once("ready", async () => {
     const fila = new ActionRowBuilder().addComponents(boton);
  
     await canal.send({
-      content: "Haz clic aquí para solicitar acceso al clan:",
+      content: "📝 Solicitud de Acceso: Haz clic en el botón de abajo para completar el formulario de reclutamiento.",
       components: [fila]
     });
   }
@@ -201,30 +201,6 @@ client.on(Events.GuildMemberAdd, async member => {
     channel.send({ content: `¡Bienvenido <@${member.id}>!`, embeds: [embed] });
 });
  
-// ===== REACCIONES ROLES =====
-client.on("messageReactionAdd", async (reaction, user) => {
-  if (user.bot) return;
-  if (reaction.partial) await reaction.fetch();
- 
-  const member = await reaction.message.guild.members.fetch(user.id);
- 
-  // Lógica Roles Clases
-  if (reaction.message.channel.id === CANAL_ROLES && ROLES_REACCIONES[reaction.emoji.name]) {
-      const roleId = ROLES_REACCIONES[reaction.emoji.name];
-      const rolesSistema = Object.values(ROLES_REACCIONES);
- 
-      const yaTieneOtro = rolesSistema.some(id =>
-        id !== roleId && member.roles.cache.has(id)
-      );
- 
-      if (yaTieneOtro) {
-        await reaction.users.remove(user.id).catch(() => {});
-        const aviso = await reaction.message.channel.send({
-          content: `❌ <@${user.id}> Solo puedes tener **un rol** de clase a la vez.`
-        });
-        setTimeout(() => aviso.delete().catch(() => {}), 4000);
-        return;
-      }
  
       await member.roles.add(roleId).catch(() => {});
       const rol = reaction.message.guild.roles.cache.get(roleId);
