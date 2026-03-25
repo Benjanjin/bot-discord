@@ -801,14 +801,19 @@ if (interaction.isModalSubmit() && interaction.customId === 'modal_reclutamiento
             .setImage(IMAGEN_FORMULARIO)
             .setFooter({ text: "Forjamos lealtad y poder • Colmillos del Alba" })
             .setTimestamp();
-
-        const fila = new ActionRowBuilder().addComponents(
+  
+        const fila1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId("abrir_formulario").setLabel("📝 Iniciar Formulario").setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId("aceptar_miembro").setLabel("Aceptar").setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId("reclamar_ticket").setLabel("🙋‍♂️ Reclamar Ticket").setStyle(ButtonStyle.Primary)
+        );
+
+        const fila2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId("aceptar_miembro").setLabel("Aceptar").setStyle(ButtonStyle.Success),
             new ButtonBuilder().setCustomId("rechazar_miembro").setLabel("Rechazar").setStyle(ButtonStyle.Danger),
             new ButtonBuilder().setCustomId("cerrar_ticket").setLabel("Cerrar").setStyle(ButtonStyle.Secondary)
         );
-        await canal.send({ content: `<@&${STAFF_TICKETS_ID}> <@${interaction.user.id}>`, embeds: [embedFormulario], components: [fila] });
+
+        await canal.send({ content: `<@&${STAFF_TICKETS_ID}> <@${interaction.user.id}>`, embeds: [embedFormulario], components: [fila1, fila2] });
         await interaction.reply({ content: "✅ Ticket creado.", ephemeral: true });
     }
 
@@ -835,6 +840,10 @@ if (interaction.customId === "abrir_formulario") {
         await interaction.showModal(modal);
     }
 
+ if (interaction.customId === "reclamar_ticket") {
+        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
+        return interaction.reply({ content: `✅ El ticket ha sido reclamado por el staff <@${interaction.user.id}>.` });
+    }
     if (interaction.customId === "cerrar_ticket") {
         if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
         await interaction.channel.delete().catch(() => {});
