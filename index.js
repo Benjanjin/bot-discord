@@ -571,7 +571,7 @@ client.on("interactionCreate", async (interaction) => {
 > 5️⃣ **Quinta sanción:** ⚠️ **ÚLTIMA ADVERTENCIA** – 5 días.
 > 6️⃣ **Sexta sanción:** ❌ **Expulsión definitiva.**
 
-*`Las sanciones pueden aplicarse según la gravedad de la falta.`*
+*Las sanciones pueden aplicarse según la gravedad de la falta.*
 
 ─────────────────────────────
 
