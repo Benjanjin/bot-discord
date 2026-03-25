@@ -211,7 +211,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
       const m = await reaction.message.channel.send(`✅ Rol **${rol.name}** asignado.`);
       setTimeout(() => m.delete().catch(() => {}), 4000);
   }
- 
+ });
   // Lógica Roles Notificaciones
   if (reaction.message.channel.id === CANAL_ROLES && ROLES_NOTIF[reaction.emoji.name]) {
       const roleId = ROLES_NOTIF[reaction.emoji.name];
