@@ -705,46 +705,40 @@ client.on("interactionCreate", async (interaction) => {
     if (commandName === "top") {
         return interaction.reply({ content: "📊 Comando en desarrollo.", ephemeral: true });
     }
- 
-    // ===== LÓGICA COMANDO /SORTEO  =====
+ // ===== LÓGICA COMANDO /SORTEO =====
     if (commandName === "sorteo") {
         if (!member.roles.cache.has(STAFF_ROLE_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
         const premio = options.getString("premio");
         const duracion = options.getInteger("duracion");
- 
+
         const embedSorteo = new EmbedBuilder()
             .setTitle("🎉 ¡NUEVO SORTEO! 🎉")
             .setDescription(`Premio: **${premio}**\n\nReacciona con 🎟️ para participar.\nDuración: ${duracion} minutos.`)
             .setColor(0x00FF00)
             .setFooter({ text: `Sorteo iniciado por ${interaction.user.username}` })
             .setTimestamp(Date.now() + duracion * 60000);
- 
+
         await interaction.reply({ content: "✅ Sorteo creado.", ephemeral: true });
         const mensajeSorteo = await interaction.channel.send({ content: "@everyone", embeds: [embedSorteo] });
         await mensajeSorteo.react("🎟️");
- 
-        // Temporizador para finalizar
+
         setTimeout(async () => {
-            // Actualizar mensaje para obtener reacciones frescas
             const fetchedMessage = await mensajeSorteo.fetch();
             const reactions = fetchedMessage.reactions.cache.get("🎟️");
- 
+
             if (!reactions || reactions.count <= 1) {
                 return interaction.channel.send("😞 No hubo suficientes participantes para el sorteo.");
             }
- 
-            // Obtener usuarios participantes (excluyendo al bot)
+
             const users = await reactions.users.fetch();
             const participants = users.filter(u => !u.bot);
- 
+
             if (participants.size === 0) {
                 return interaction.channel.send("😞 No hubo participantes para el sorteo.");
             }
- 
-            // Seleccionar ganador al azar
+
             const winner = participants.random();
- 
-// Embed de Ganador
+
             const embedGanador = new EmbedBuilder()
                 .setTitle("🏆 ¡Tenemos un Ganador! 🏆")
                 .setDescription(`Premio: **${premio}**\n\nFelicidades <@${winner.id}> por ganar el sorteo.\nGracias a todos por participar.`)
@@ -759,18 +753,47 @@ client.on("interactionCreate", async (interaction) => {
             if(logChannel) {
                 logChannel.send(`🏆 **${premio}** fue ganado por **${winner.tag}**`);
             }
-
         }, duracion * 60000);
         return;
     }
+}); // <--- ESTA LLAVE CIERRA LOS COMANDOS SLASH (interaction.isChatInputCommand)
 
-    // ===== LÓGICA DE BOTONES (TICKETS Y ACCIONES) =====
+// ===== LÓGICA DE BOTONES Y MODALS (FUERA DE LOS COMANDOS) =====
+client.on("interactionCreate", async (interaction) => {
+    
+    // 1. Manejo de Modals
+    if (interaction.isModalSubmit()) {
+        if (interaction.customId === 'modal_reclutamiento') {
+            const nick = interaction.fields.getTextInputValue('f_nick');
+            const datos = interaction.fields.getTextInputValue('f_datos');
+            const espec = interaction.fields.getTextInputValue('f_especialidad');
+            const exp = interaction.fields.getTextInputValue('f_exp');
+            const mic = interaction.fields.getTextInputValue('f_mic');
+
+            const embedRespuestas = new EmbedBuilder()
+                .setTitle("📝 SOLICITUD COMPLETADA")
+                .setDescription(`El usuario <@${interaction.user.id}> ha enviado su formulario.`)
+                .setColor(0x00FF00)
+                .addFields(
+                    { name: '👤 Nick', value: nick, inline: true },
+                    { name: '🌎 Datos', value: datos, inline: true },
+                    { name: '🎮 Especialidad', value: espec, inline: true },
+                    { name: '⏳ Exp/Tiempo', value: exp },
+                    { name: '🎤 Micrófono', value: mic }
+                )
+                .setTimestamp();
+
+            await interaction.channel.send({ embeds: [embedRespuestas] });
+            return interaction.reply({ content: "✅ Tu formulario ha sido enviado correctamente.", ephemeral: true });
+        }
+    }
+
+    // 2. Manejo de Botones
     if (!interaction.isButton()) return;
 
     if (interaction.customId === "crear_ticket") {
         const nombreCanal = `verificacion-${interaction.user.id}`;
         const existingChannel = interaction.guild.channels.cache.find(c => c.name === nombreCanal);
-
         if (existingChannel) return interaction.reply({ content: "❌ Ya tienes un ticket abierto.", ephemeral: true });
 
         const canal = await interaction.guild.channels.create({
@@ -781,63 +804,62 @@ client.on("interactionCreate", async (interaction) => {
                 { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                 { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
                 { id: STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-                { id: "1480750004309332040", allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }, 
+                { id: STAFF_TICKETS_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
                 { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
             ]
         });
 
         const embedFormulario = new EmbedBuilder()
             .setTitle("⚔ COLMILLOS DEL ALBA ⚔")
-            .setDescription(`╔══════════════════════════════════╗\n      ⚔  COLMILLOS DEL ALBA  ⚔\n╚══════════════════════════════════╝\n\n**━━━  PROCESO DE RECLUTAMIENTO OFICIAL  ━━━**\n\nPulsa el botón **"📝 Responder Formulario"** para rellenar tu solicitud.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n      ⚔  FORJAMOS LEALTAD Y PODER  ⚔\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
+            .setDescription("Pulsa el botón **\"📝 Responder Formulario\"** para rellenar tu solicitud.")
             .setColor(0x8B0000)
-            .setImage("https://i.imgur.com/vpR9rSJ.png"); 
+            .setImage(IMAGEN_FORMULARIO); 
 
-        const btnResponder = new ButtonBuilder().setCustomId("abrir_formulario").setLabel("📝 Responder Formulario").setStyle(ButtonStyle.Primary);
-        const aceptar = new ButtonBuilder().setCustomId("aceptar_miembro").setLabel("Aceptar Miembro").setStyle(ButtonStyle.Success);
-        const rechazar = new ButtonBuilder().setCustomId("rechazar_miembro").setLabel("Rechazar Miembro").setStyle(ButtonStyle.Danger);
-        const cerrar = new ButtonBuilder().setCustomId("cerrar_ticket").setLabel("Cerrar Ticket").setStyle(ButtonStyle.Secondary);
+        const fila = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId("abrir_formulario").setLabel("📝 Responder Formulario").setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId("aceptar_miembro").setLabel("Aceptar").setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId("rechazar_miembro").setLabel("Rechazar").setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId("cerrar_ticket").setLabel("Cerrar").setStyle(ButtonStyle.Secondary)
+        );
 
-        const fila = new ActionRowBuilder().addComponents(btnResponder, aceptar, rechazar, cerrar);
-        await canal.send({ content: `<@&1480750004309332040> <@${interaction.user.id}>`, embeds: [embedFormulario], components: [fila] });
+        await canal.send({ content: `<@&${STAFF_TICKETS_ID}> <@${interaction.user.id}>`, embeds: [embedFormulario], components: [fila] });
         await interaction.reply({ content: "✅ Ticket creado.", ephemeral: true });
     }
 
     if (interaction.customId === "abrir_formulario") {
         const modal = new ModalBuilder().setCustomId('modal_reclutamiento').setTitle('Formulario de Reclutamiento');
-
-        const c1 = new TextInputBuilder().setCustomId('f_nick').setLabel("Nick en Minecraft").setStyle(TextInputStyle.Short).setRequired(true);
-        const c2 = new TextInputBuilder().setCustomId('f_datos').setLabel("Edad / Sexo / País").setStyle(TextInputStyle.Short).setRequired(true);
-        const c3 = new TextInputBuilder().setCustomId('f_especialidad').setLabel("Especialidad (PvP, Builder, etc)").setStyle(TextInputStyle.Short).setRequired(true);
-        const c4 = new TextInputBuilder().setCustomId('f_exp').setLabel("Experiencia y Disponibilidad").setStyle(TextInputStyle.Paragraph).setRequired(true);
-        const c5 = new TextInputBuilder().setCustomId('f_mic').setLabel("¿Tienes Micrófono?").setStyle(TextInputStyle.Short).setRequired(true);
-
-        modal.addComponents(new ActionRowBuilder().addComponents(c1), new ActionRowBuilder().addComponents(c2), new ActionRowBuilder().addComponents(c3), new ActionRowBuilder().addComponents(c4), new ActionRowBuilder().addComponents(c5));
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('f_nick').setLabel("Nick en Minecraft").setStyle(TextInputStyle.Short).setRequired(true)),
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('f_datos').setLabel("Edad / País").setStyle(TextInputStyle.Short).setRequired(true)),
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('f_especialidad').setLabel("Especialidad (PvP, Builder)").setStyle(TextInputStyle.Short).setRequired(true)),
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('f_exp').setLabel("Experiencia").setStyle(TextInputStyle.Paragraph).setRequired(true)),
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('f_mic').setLabel("¿Tienes Micrófono?").setStyle(TextInputStyle.Short).setRequired(true))
+        );
         await interaction.showModal(modal);
     }
 
     if (interaction.customId === "aceptar_miembro" || interaction.customId === "rechazar_miembro") {
-        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has("1480750004309332040")) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
+        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
         
         const userId = interaction.channel.name.replace("verificacion-", "");
         const member = await interaction.guild.members.fetch(userId).catch(() => null);
-        if (!member) return interaction.reply({ content: "❌ Usuario no encontrado.", ephemeral: true });
 
         if (interaction.customId === "aceptar_miembro") {
-            const rol = interaction.guild.roles.cache.get(CLAN_ROLE_ID);
-            if (rol) await member.roles.add(rol);
-            await interaction.reply({ embeds: [new EmbedBuilder().setTitle("✅ Aceptado").setDescription(`Bienvenido ${member.user.username} al clan.`).setColor(0x00FF00)] });
-            await interaction.channel.setParent(CATEGORIA_HISTORIAL);
+            if (member) await member.roles.add(CLAN_ROLE_ID).catch(() => {});
+            await interaction.reply({ content: "✅ Usuario aceptado y rol asignado." });
+            await interaction.channel.setParent(CATEGORIA_HISTORIAL).catch(() => {});
         } else {
-            await interaction.reply({ embeds: [new EmbedBuilder().setTitle("❌ Rechazado").setDescription("El usuario será baneado en 15 segundos.").setColor(0xFF0000)] });
-            setTimeout(async () => { await member.ban({ reason: "Rechazado en reclutamiento." }).catch(() => {}); }, 15000);
-            await interaction.channel.setParent(CATEGORIA_HISTORIAL);
+            await interaction.reply({ content: "❌ Usuario rechazado. Baneo en 15s." });
+            setTimeout(async () => { if(member) await member.ban({ reason: "Rechazado" }).catch(() => {}); }, 15000);
+            await interaction.channel.setParent(CATEGORIA_HISTORIAL).catch(() => {});
         }
     }
 
     if (interaction.customId === "cerrar_ticket") {
-        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has("1480750004309332040")) return interaction.reply({ content: "❌ Solo staff.", ephemeral: true });
+        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
         await interaction.channel.delete().catch(() => {});
     }
-}); 
+});
 
 client.login(process.env.TOKEN);
+    
