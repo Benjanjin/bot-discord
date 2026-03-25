@@ -126,7 +126,7 @@ client.once(Events.ClientReady, async () => {
                 "• Esperar pacientemente a la respuesta de nuestro staff."
             )
             .setColor("#2F3136")
-            .setImage("https://i.imgur.com/dYJUZjF.png");
+            .setImage("https://i.imgur.com/JQiIkcZ.png");
 
         const menuTickets = new StringSelectMenuBuilder()
             .setCustomId('menu_tickets')
