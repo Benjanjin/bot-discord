@@ -516,7 +516,6 @@ client.on("interactionCreate", async (interaction) => {
   const embedReglas = new EmbedBuilder()
     .setTitle("📜 REGLAS COLMILLOS DEL ALBA")
     .setDescription(`# ─── 🟣 **REGLAS DE DISCORD** ───
-    
 ### 1️⃣ 🤝 **Respeto y Convivencia**
 > * Tratar a todos con respeto.
 > * Nada de insultos, racismo o comportamiento tóxico. 🚫
