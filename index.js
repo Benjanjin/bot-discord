@@ -515,78 +515,78 @@ client.on("interactionCreate", async (interaction) => {
   if (commandName === "reglas") {
   const embedReglas = new EmbedBuilder()
     .setTitle("📜 REGLAS COLMILLOS DEL ALBA")
-    .setDescription(`
-🟣 **REGLAS DE DISCORD**
- 
-1️⃣ 🔹 **Respeto y convivencia**
-- Tratar a todos con respeto.
-- Nada de insultos, racismo o comportamiento tóxico.
- 
-2️⃣ 🔹 **Chat ordenado**
-- Evitar spam.
-- No generar conflictos innecesarios.
-- Mantener los canales organizados según su función.
-- ❌ No mandar links de servidores externos.
- 
-3️⃣ 🔹 **Participación y actividad**
-- Mantenerse activo en el servidor.
-- Habrá un plazo de **15 días** de tolerancia a la inactividad.
-- Si después de ese plazo no hay actividad, el miembro **será expulsado**.
-- La inactividad solo se justifica si se avisa **antes** a un líder y se presenta una razón válida.
- 
-4️⃣ 🔹 **Conflictos y liderazgo**
-- Cualquier conflicto deberá hablarse con un líder.
-- Seguir las decisiones de los líderes.
-- Proponer ideas de manera respetuosa y constructiva.
- 
+    .setDescription(`# ─── 🟣 **REGLAS DE DISCORD** ───
+
+### 1️⃣ 🤝 **Respeto y Convivencia**
+> * Tratar a todos con respeto.
+> * Nada de insultos, racismo o comportamiento tóxico. 🚫
+
+### 2️⃣ 💬 **Chat y Orden**
+> * Evitar el **spam**. 📨
+> * No generar conflictos innecesarios.
+> * Mantener los canales organizados según su función. 📂
+> * ❌ **No mandar links** de servidores externos.
+
+### 3️⃣ ⚡ **Participación y Actividad**
+> * Mantenerse activo en el servidor.
+> * Habrá un plazo de **15 días** de tolerancia a la inactividad. ⏳
+> * Si después de ese plazo no hay actividad, el miembro **será expulsado**.
+> * La inactividad solo se justifica si se avisa **antes** a un líder y se presenta una razón válida. 📝
+
+### 4️⃣ 👑 **Conflictos y Liderazgo**
+> * Cualquier conflicto deberá hablarse con un líder.
+> * Seguir las decisiones de los líderes. 🛡️
+> * Proponer ideas de manera respetuosa y constructiva.
+
 ─────────────────────────────
- 
-🟢 **REGLAS DE MINECRAFT (dioses.mc)**
- 
-1️⃣ 🔹 **Roles y actividades.**
-- Cumplir con tu rol: ⚔ PvP | 🛠️ Builder | 🎲 Casual
-- Apoyar al clan en aventuras, guerras y construcciones
-- ⚔ PvP: si no hay combates activos, ayudar en construcciones
- 
-2️⃣ 🔹 **Trabajo en equipo**
-- Compartir recursos cuando sea necesario.
-- Coordinar ataques y defensas como un verdadero equipo.
- 
-3️⃣ 🔹 **Prohibido hacer trampas**
-- Nada de hacks, cheats o exploits.
-- ❌ Incumplir puede derivar en expulsión del clan y del Discord.
- 
-4️⃣ 🔹 **Construcciones y territorio**
-- ❌ No grifear ni destruir construcciones ajenas.
-- Preguntar antes de hacer construcciones en zonas del clan.
- 
+
+# ─── 🟢 **REGLAS DE MINECRAFT** ───
+### `dioses.mc`
+
+### 1️⃣ ⚔️ **Roles y Actividades**
+> * **Cumplir con tu rol:** ⚔ `PvP` | 🛠️ `Builder` | 🎲 `Casual`
+> * Apoyar al clan en aventuras, guerras y construcciones. 🛡️
+> * **PvP:** Si no hay combates activos, ayudar en construcciones.
+
+### 2️⃣ 🤝 **Trabajo en Equipo**
+> * Compartir recursos cuando sea necesario. 💎
+> * Coordinar ataques y defensas como un verdadero equipo.
+
+### 3️⃣ 🚫 **Prohibido hacer trampas**
+> * Nada de hacks, cheats o exploits.
+> * ❌ Incumplir puede derivar en **expulsión** del clan y del Discord.
+
+### 4️⃣ 🧱 **Construcciones y Territorio**
+> * ❌ No grifear ni destruir construcciones ajenas.
+> * Preguntar antes de hacer construcciones en zonas del clan. 🏗️
+
 ─────────────────────────────
- 
-⚖️ **SANCIONES**
-1️⃣ Primera sanción: Mute de 1 hora.  
-2️⃣ Segunda sanción: Mute de 5 horas.  
-3️⃣ Tercera sanción: Mute de 12 horas.  
-4️⃣ Cuarta sanción: Mute de 1 día.  
-5️⃣ Quinta sanción: ⚠️ ÚLTIMA ADVERTENCIA – 5 días.  
-6️⃣ Sexta sanción: ❌ Expulsión del clan y del Discord.  
- 
-*(Las sanciones pueden aplicarse según la gravedad de la falta.)*
- 
+
+# ─── ⚖️ **SANCIONES** ───
+
+> 1️⃣ **Primera sanción:** Mute de 1 hora.
+> 2️⃣ **Segunda sanción:** Mute de 5 horas.
+> 3️⃣ **Tercera sanción:** Mute de 12 horas.
+> 4️⃣ **Cuarta sanción:** Mute de 1 día.
+> 5️⃣ **Quinta sanción:** ⚠️ **ÚLTIMA ADVERTENCIA** – 5 días.
+> 6️⃣ **Sexta sanción:** ❌ **Expulsión definitiva.**
+
+*`Las sanciones pueden aplicarse según la gravedad de la falta.`*
+
 ─────────────────────────────
- 
-🏹 **LIDERAZGO DEL CLAN**
- 
-- <@&1459685194603823189> — <@777529808325181460>
-- <@&1459688412356280623> — <@1042214255358910514>
-- <@&1474178918549295156> — <@525815527117946892>
-- <@&1466692938607099904> — <@1157178540865896580>
-- <@&1478610757569744917> — <@670690283117084684>
-- <@&1466694077104914576> — <@478093856668123148>
-- <@&1466693381454434471> — <@722044088890818570>
- 
+
+# ─── 🏹 **LIDERAZGO DEL CLAN** ───
+
+🛡️ <@&1459685194603823189> — <@777529808325181460>
+🛡️ <@&1459688412356280623> — <@1042214255358910514>
+🛡️ <@&1474178918549295156> — <@525815527117946892>
+🛡️ <@&1466692938607099904> — <@1157178540865896580>
+🛡️ <@&1478610757569744917> — <@670690283117084684>
+🛡️ <@&1466694077104914576> — <@478093856668123148>
+🛡️ <@&1466693381454434471> — <@722044088890818570>
+
 ─────────────────────────────
-🔥🌅 ¡Que **ColmillosdelAlba** crezca fuerte, unido y legendario! 🌅🐉
-`)
+🔥🌅 ¡Que **ColmillosdelAlba** crezca fuerte, unido y legendario! 🌅🐉`)
     .setColor(0x8B0000);
  
   return interaction.reply({
