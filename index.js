@@ -516,7 +516,7 @@ client.on("interactionCreate", async (interaction) => {
   const embedReglas = new EmbedBuilder()
     .setTitle("📜 REGLAS COLMILLOS DEL ALBA")
     .setDescription(`# ─── 🟣 **REGLAS DE DISCORD** ───
-
+    
 ### 1️⃣ 🤝 **Respeto y Convivencia**
 > * Tratar a todos con respeto.
 > * Nada de insultos, racismo o comportamiento tóxico. 🚫
@@ -541,7 +541,7 @@ client.on("interactionCreate", async (interaction) => {
 ─────────────────────────────
 
 # ─── 🟢 **REGLAS DE MINECRAFT** ───
-### `dioses.mc`
+### dioses.mc
 
 ### 1️⃣ ⚔️ **Roles y Actividades**
 > * **Cumplir con tu rol:** ⚔ `PvP` | 🛠️ `Builder` | 🎲 `Casual`
