@@ -188,8 +188,8 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
 client.on(Events.GuildMemberAdd, async member => {
     const channel = member.guild.channels.cache.get(CANAL_BIENVENIDAS);
     if (!channel) return;
- 
-  const embed = new EmbedBuilder()
+
+    const embed = new EmbedBuilder()
         .setTitle("👋 ¡Nuevo miembro!")
         .setDescription(`¡Bienvenido al **Clan ColmillosDelAlba** <@${member.id}>!\nPasala bien!! 🐉`) 
         .setColor(0x00FF00)
@@ -197,29 +197,35 @@ client.on(Events.GuildMemberAdd, async member => {
         .setImage("https://i.imgur.com/BFAmZ4A.jpg") 
         .setFooter({ text: `Eres el miembro #${member.guild.memberCount}` })
         .setTimestamp();
- 
+
     channel.send({ content: `¡Bienvenido <@${member.id}>!`, embeds: [embed] });
 });
- 
- // AÑADE ESTA LÍNEA AQUÍ:
+
+// SISTEMA DE REACCIONES (CORREGIDO)
 client.on("messageReactionAdd", async (reaction, user) => { 
     if (user.bot) return;
+    if (reaction.partial) await reaction.fetch();
+    
     const member = await reaction.message.guild.members.fetch(user.id);
-    const roleId = ROLES_REACCIONES[reaction.emoji.name];
-      await member.roles.add(roleId).catch(() => {});
-      const rol = reaction.message.guild.roles.cache.get(roleId);
-      const m = await reaction.message.channel.send(`✅ Rol **${rol.name}** asignado.`);
-      setTimeout(() => m.delete().catch(() => {}), 4000);
-  }
-  // Lógica Roles Notificaciones
-  if (reaction.message.channel.id === CANAL_ROLES && ROLES_NOTIF[reaction.emoji.name]) {
-      const roleId = ROLES_NOTIF[reaction.emoji.name];
-      await member.roles.add(roleId).catch(() => {});
-      const rol = reaction.message.guild.roles.cache.get(roleId);
-      const m = await reaction.message.channel.send(`✅ Rol **${rol.name}** asignado.`);
-      setTimeout(() => m.delete().catch(() => {}), 4000);
-  }
-});
+
+    // Lógica Roles de Clase
+    if (ROLES_REACCIONES[reaction.emoji.name]) {
+        const roleId = ROLES_REACCIONES[reaction.emoji.name];
+        await member.roles.add(roleId).catch(() => {});
+        const rol = reaction.message.guild.roles.cache.get(roleId);
+        const m = await reaction.message.channel.send(`✅ Rol **${rol.name}** asignado.`);
+        setTimeout(() => m.delete().catch(() => {}), 4000);
+    }
+
+    // Lógica Roles Notificaciones
+    if (reaction.message.channel.id === CANAL_ROLES && ROLES_NOTIF[reaction.emoji.name]) {
+        const roleId = ROLES_NOTIF[reaction.emoji.name];
+        await member.roles.add(roleId).catch(() => {});
+        const rol = reaction.message.guild.roles.cache.get(roleId);
+        const m = await reaction.message.channel.send(`✅ Rol **${rol.name}** asignado.`);
+        setTimeout(() => m.delete().catch(() => {}), 4000);
+    }
+}); // <--- ESTE ES EL CIERRE CORRECTO
  
 client.on("messageReactionRemove", async (reaction, user) => {
   if (user.bot) return;
