@@ -822,10 +822,10 @@ if (interaction.customId === "abrir_formulario") {
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('f_datos').setLabel("NICK / EDAD / SEXO / PAÍS").setPlaceholder("Ej: 1fsi / 16 / Masculino / Uruguay").setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder().setCustomId('f_datos').setLabel("NICK / EDAD / GENERO / PAÍS").setPlaceholder("Ej: Nick: jose / edad: 20 / Genero: Masculino / Pais: España").setStyle(TextInputStyle.Short).setRequired(true)
             ),
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('f_especialidad').setLabel("ESPECIALIDAD Y NIVEL PVP").setPlaceholder("Ej: PvP y Constructor - Nivel: Alto").setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder().setCustomId('f_especialidad').setLabel("ESPECIALIDAD: CONSTRCUTOR, FARMER, TECNICO O PVP Y NIVEL PVP").setPlaceholder("Ej: PvP y Constructor - Nivel: Alto").setStyle(TextInputStyle.Short).setRequired(true)
             ),
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder().setCustomId('f_exp').setLabel("AÑOS DE EXPERIENCIA EN MC").setPlaceholder("¿Cuántos años llevas jugando?").setStyle(TextInputStyle.Short).setRequired(true)
