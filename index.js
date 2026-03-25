@@ -778,6 +778,7 @@ if (interaction.isModalSubmit() && interaction.customId === 'modal_reclutamiento
             name: nombreCanal,
             type: ChannelType.GuildText,
             parent: CATEGORIA_TICKETS,
+            topic: interaction.user.id, // <--- ESTO ES LO QUE FALTA (IMPORTANTE)
             permissionOverwrites: [
                 { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                 { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
