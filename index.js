@@ -844,20 +844,51 @@ if (interaction.customId === "abrir_formulario") {
         if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
         return interaction.reply({ content: `✅ El ticket ha sido reclamado por el staff <@${interaction.user.id}>.` });
     }
- // --- LÓGICA DE ACEPTAR Y RECHAZAR ---
+// --- LÓGICA DE ACEPTAR Y RECHAZAR (ACTUALIZADA) ---
     if (interaction.customId === "aceptar_miembro" || interaction.customId === "rechazar_miembro") {
-        // Verificamos si es Staff
         if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) {
             return interaction.reply({ content: "❌ No tienes permiso para usar estos botones.", ephemeral: true });
         }
 
+        // Buscamos al dueño del ticket (por el ID guardado en el topic del canal)
+        const targetMember = await interaction.guild.members.fetch(interaction.channel.topic).catch(() => null);
+
         if (interaction.customId === "aceptar_miembro") {
-            await interaction.reply({ content: "✅ **Usuario aceptado.** No olvides darle el rol manualmente en el servidor." });
+            // 1. Dar el rol automáticamente
+            if (targetMember) {
+                await targetMember.roles.add("1459687732417921227").catch(() => {});
+            }
+
+            await interaction.reply({ 
+                content: `✅ **ASPIRANTE ACEPTADO**\nEl rol ha sido asignado. El canal se eliminará en 15 segundos.` 
+            });
+
+            // 2. Borrar canal en 15 segundos
+            setTimeout(() => interaction.channel.delete().catch(() => {}), 15000);
+
         } else {
-            await interaction.reply({ content: "❌ **Usuario rechazado.** El canal se borrará en 10 segundos." });
-            setTimeout(() => {
-                interaction.channel.delete().catch(() => {});
-            }, 10000);
+            // --- LÓGICA DE RECHAZO ---
+            const embedRechazo = new EmbedBuilder()
+                .setTitle("⚔️ ESTADO DE POSTULACIÓN: COLMILLOS DEL ALBA ⚔️")
+                .setColor(0xFF0000)
+                .setDescription(
+                    `Saludos aspirante.\n\nLamentamos informarte que, tras revisar tu postulación, **tu solicitud de ingreso ha sido rechazada**.\n\n` +
+                    `Buscamos un nivel de compromiso, disciplina y perfil técnico que no hemos identificado en esta ocasión.\n\n*Atentamente, el Alto Mando de Colmillos del Alba.*`
+                )
+                .setFooter({ text: "Forjamos lealtad y poder." })
+                .setTimestamp();
+
+            // 1. Mandar mensaje privado (DM) profesional
+            if (targetMember) {
+                await targetMember.send({ embeds: [embedRechazo] }).catch(() => {});
+            }
+
+            await interaction.reply({ 
+                content: `❌ **ASPIRANTE RECHAZADO**\nSe ha enviado el comunicado oficial por privado. El canal se eliminará en 15 segundos.` 
+            });
+
+            // 2. Borrar canal en 15 segundos
+            setTimeout(() => interaction.channel.delete().catch(() => {}), 15000);
         }
     }
     if (interaction.customId === "cerrar_ticket") {
