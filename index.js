@@ -299,34 +299,35 @@ client.on("messageCreate", async (message) => {
 // ===== INTERACCIONES (COMANDOS Y TICKETS) =====
 client.on("interactionCreate", async (interaction) => {
 // --- RECEPTOR DEL FORMULARIO (NUEVO Y MEJORADO) ---
-  if (interaction.isModalSubmit()) {
-    if (interaction.customId === 'modal_reclutamiento') {
-      const nick = interaction.fields.getTextInputValue('f_nick');
-      const datos = interaction.fields.getTextInputValue('f_datos');
-      const espec = interaction.fields.getTextInputValue('f_especialidad');
-      const exp = interaction.fields.getTextInputValue('f_exp');
-      const mic = interaction.fields.getTextInputValue('f_mic');
+ if (interaction.isModalSubmit() && interaction.customId === 'modal_reclutamiento') {
+    // Extraemos los datos con los IDs nuevos
+    const datos = interaction.fields.getTextInputValue('f_datos');
+    const especialidad = interaction.fields.getTextInputValue('f_especialidad');
+    const experiencia = interaction.fields.getTextInputValue('f_exp');
+    const disponibilidad = interaction.fields.getTextInputValue('f_dispo');
+    const microfono = interaction.fields.getTextInputValue('f_mic');
 
-      const embedRespuestas = new EmbedBuilder()
-        .setTitle("📝 SOLICITUD COMPLETADA")
-        .setDescription(`El usuario <@${interaction.user.id}> ha enviado su formulario.`)
+    const embedRespuestas = new EmbedBuilder()
+        .setTitle("⚔️ NUEVA SOLICITUD RECIBIDA ⚔️")
+        .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
         .setColor(0x00FF00)
+        .setDescription(`El aspirante <@${interaction.user.id}> ha enviado su postulación oficial.`)
         .addFields(
-          { name: '👤 Nick', value: nick, inline: true },
-          { name: '🌎 Datos', value: datos, inline: true },
-          { name: '🎮 Especialidad', value: espec, inline: true },
-          { name: '⏳ Exp/Tiempo', value: exp },
-          { name: '🎤 Micrófono', value: mic }
+            { name: '👤 Datos Personales', value: `\`\`\`${datos}\`\`\``, inline: false },
+            { name: '🎮 Perfil de Jugador', value: `\`\`\`${especialidad}\`\`\``, inline: false },
+            { name: '⏳ Tiempo en el Juego', value: `\`\`\`${experiencia}\`\`\``, inline: true },
+            { name: '🎤 Comunicación', value: `\`\`\`${microfono}\`\`\``, inline: true },
+            { name: '⏰ Disponibilidad', value: `\`\`\`${disponibilidad}\`\`\``, inline: false }
         )
+        .setFooter({ text: "Evaluación de Actitud y Compromiso" })
         .setTimestamp();
 
-      // Esto lo manda al canal del ticket para que el Staff lo lea
-      await interaction.channel.send({ embeds: [embedRespuestas] });
-      
-// Esto le confirma al usuario que todo salió bien (solo lo ve él)
-      return interaction.reply({ content: "✅ Tu formulario ha sido enviado correctamente.", ephemeral: true });
-    }
-  } // <--- ASEGÚRATE QUE ESTA LLAVE ESTÉ AQUÍ
+    // Enviamos el mensaje al canal del ticket
+    await interaction.channel.send({ embeds: [embedRespuestas] }).catch(() => {});
+    
+    // Respuesta obligatoria para que no salga "error" en Discord
+    return interaction.reply({ content: "✅ Tu solicitud ha sido enviada correctamente al Staff.", ephemeral: true });
+  }
   if (interaction.isChatInputCommand()) { // <--- ESTE ES EL SIGUIENTE BLOQUE
     const { commandName, options, guild, member } = interaction;
  
