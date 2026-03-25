@@ -201,7 +201,11 @@ client.on(Events.GuildMemberAdd, async member => {
     channel.send({ content: `¡Bienvenido <@${member.id}>!`, embeds: [embed] });
 });
  
- 
+ // AÑADE ESTA LÍNEA AQUÍ:
+client.on("messageReactionAdd", async (reaction, user) => { 
+    if (user.bot) return;
+    const member = await reaction.message.guild.members.fetch(user.id);
+    const roleId = ROLES_REACCIONES[reaction.emoji.name];
       await member.roles.add(roleId).catch(() => {});
       const rol = reaction.message.guild.roles.cache.get(roleId);
       const m = await reaction.message.channel.send(`✅ Rol **${rol.name}** asignado.`);
