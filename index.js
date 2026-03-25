@@ -102,7 +102,7 @@ client.once(Events.ClientReady, async () => {
         const embedRoles = new EmbedBuilder()
             .setTitle("🔱 SELECCIÓN DE ROLES - COLMILLOS DEL ALBA")
             .setDescription("Selecciona tu especialidad y elije que tipo de notificaciones quieres recibir abajo.")
-            .setColor("#8B0000").setImage("https://i.imgur.com/jfZBC82.png");
+            .setColor("#8B0000").setImage("https://i.imgur.com/JQiIkcZ.png");
         const filaClase = new ActionRowBuilder().addComponents(Object.entries(ROLES_CLASE).map(([id, data]) => new ButtonBuilder().setCustomId(id).setLabel(data.label).setEmoji(data.emoji).setStyle(ButtonStyle.Secondary)));
         const filaNotif = new ActionRowBuilder().addComponents(Object.entries(ROLES_NOTIF).map(([id, data]) => new ButtonBuilder().setCustomId(id).setLabel(data.label).setEmoji(data.emoji).setStyle(ButtonStyle.Primary)));
         await canalRoles.send({ embeds: [embedRoles], components: [filaClase, filaNotif] });
@@ -126,7 +126,7 @@ client.once(Events.ClientReady, async () => {
                 "• Esperar pacientemente a la respuesta de nuestro staff."
             )
             .setColor("#2F3136")
-            .setImage("https://i.imgur.com/JQiIkcZ.png");
+            .setImage("https://i.imgur.com/gwQ0oiP.png");
 
         const menuTickets = new StringSelectMenuBuilder()
             .setCustomId('menu_tickets')
