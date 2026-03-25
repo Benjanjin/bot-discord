@@ -844,6 +844,22 @@ if (interaction.customId === "abrir_formulario") {
         if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
         return interaction.reply({ content: `✅ El ticket ha sido reclamado por el staff <@${interaction.user.id}>.` });
     }
+ // --- LÓGICA DE ACEPTAR Y RECHAZAR ---
+    if (interaction.customId === "aceptar_miembro" || interaction.customId === "rechazar_miembro") {
+        // Verificamos si es Staff
+        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) {
+            return interaction.reply({ content: "❌ No tienes permiso para usar estos botones.", ephemeral: true });
+        }
+
+        if (interaction.customId === "aceptar_miembro") {
+            await interaction.reply({ content: "✅ **Usuario aceptado.** No olvides darle el rol manualmente en el servidor." });
+        } else {
+            await interaction.reply({ content: "❌ **Usuario rechazado.** El canal se borrará en 10 segundos." });
+            setTimeout(() => {
+                interaction.channel.delete().catch(() => {});
+            }, 10000);
+        }
+    }
     if (interaction.customId === "cerrar_ticket") {
         if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
         await interaction.channel.delete().catch(() => {});
