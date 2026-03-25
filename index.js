@@ -753,16 +753,15 @@ client.on("interactionCreate", async (interaction) => {
             if(logChannel) {
                 logChannel.send(`🏆 **${premio}** fue ganado por **${winner.tag}**`);
             }
-        }, duracion * 60000);
+}, duracion * 60000);
         return;
-    }
-}); // <--- ESTA LLAVE CIERRA LOS COMANDOS SLASH (interaction.isChatInputCommand)
+    } // Cierra if sorteo
 
-// ===== LÓGICA DE BOTONES Y MODALS (FUERA DE LOS COMANDOS) =====
-client.on("interactionCreate", async (interaction) => {
-    
-    // 1. Manejo de Modals
-    if (interaction.isModalSubmit()) {
+    // ===== AQUÍ TERMINAN LOS COMANDOS SLASH =====
+  } 
+
+  // ===== AQUÍ EMPIEZA LA LÓGICA DE MODALS Y BOTONES =====
+  if (interaction.isModalSubmit()) {
         if (interaction.customId === 'modal_reclutamiento') {
             const nick = interaction.fields.getTextInputValue('f_nick');
             const datos = interaction.fields.getTextInputValue('f_datos');
