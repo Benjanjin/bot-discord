@@ -739,30 +739,30 @@ if (commandName === "reglas") {
   } 
 
   // ===== AQUÍ EMPIEZA LA LÓGICA DE MODALS Y BOTONES =====
-  if (interaction.isModalSubmit()) {
-        if (interaction.customId === 'modal_reclutamiento') {
-            const nick = interaction.fields.getTextInputValue('f_nick');
-            const datos = interaction.fields.getTextInputValue('f_datos');
-            const espec = interaction.fields.getTextInputValue('f_especialidad');
-            const exp = interaction.fields.getTextInputValue('f_exp');
-            const mic = interaction.fields.getTextInputValue('f_mic');
+if (interaction.isModalSubmit() && interaction.customId === 'modal_reclutamiento') {
+        const datos = interaction.fields.getTextInputValue('f_datos');
+        const especialidad = interaction.fields.getTextInputValue('f_especialidad');
+        const experiencia = interaction.fields.getTextInputValue('f_exp');
+        const disponibilidad = interaction.fields.getTextInputValue('f_dispo');
+        const microfono = interaction.fields.getTextInputValue('f_mic');
 
-            const embedRespuestas = new EmbedBuilder()
-                .setTitle("📝 SOLICITUD COMPLETADA")
-                .setDescription(`El usuario <@${interaction.user.id}> ha enviado su formulario.`)
-                .setColor(0x00FF00)
-                .addFields(
-                    { name: '👤 Nick', value: nick, inline: true },
-                    { name: '🌎 Datos', value: datos, inline: true },
-                    { name: '🎮 Especialidad', value: espec, inline: true },
-                    { name: '⏳ Exp/Tiempo', value: exp },
-                    { name: '🎤 Micrófono', value: mic }
-                )
-                .setTimestamp();
+        const embedRespuestas = new EmbedBuilder()
+            .setTitle("⚔️ NUEVA SOLICITUD RECIBIDA ⚔️")
+            .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
+            .setColor(0x00FF00)
+            .setDescription(`El aspirante <@${interaction.user.id}> ha enviado su postulación oficial.`)
+            .addFields(
+                { name: '👤 Datos Personales', value: `\`\`\`${datos}\`\`\``, inline: false },
+                { name: '🎮 Perfil de Jugador', value: `\`\`\`${especialidad}\`\`\``, inline: false },
+                { name: '⏳ Tiempo en el Juego', value: `\`\`\`${experiencia}\`\`\``, inline: true },
+                { name: '🎤 Comunicación', value: `\`\`\`${microfono}\`\`\``, inline: true },
+                { name: '⏰ Disponibilidad', value: `\`\`\`${disponibilidad}\`\`\``, inline: false }
+            )
+            .setFooter({ text: "Evaluación de Actitud y Compromiso" })
+            .setTimestamp();
 
-            await interaction.channel.send({ embeds: [embedRespuestas] });
-            return interaction.reply({ content: "✅ Tu formulario ha sido enviado correctamente.", ephemeral: true });
-        }
+        await interaction.channel.send({ embeds: [embedRespuestas] });
+        return interaction.reply({ content: "✅ Tu solicitud ha sido enviada correctamente. El Staff la revisará pronto.", ephemeral: true });
     }
 
     // 2. Manejo de Botones
@@ -786,50 +786,52 @@ if (commandName === "reglas") {
             ]
         });
 
-        const embedFormulario = new EmbedBuilder()
-            .setTitle("⚔ COLMILLOS DEL ALBA ⚔")
-            .setDescription("Pulsa el botón **\"📝 Responder Formulario\"** para rellenar tu solicitud.")
-            .setColor(0x8B0000)
-            .setImage(IMAGEN_FORMULARIO); 
+         const embedFormulario = new EmbedBuilder()
+            .setTitle("⚔️ RECLUTAMIENTO: COLMILLOS DEL ALBA ⚔️")
+            .setDescription(
+                "**Bienvenido aspirante.**\n\nBuscamos guerreros con disciplina, constancia y lealtad. Para iniciar tu proceso, haz clic en el botón **\"📝 Iniciar Formulario\"**.\n\n" +
+                "⚠️ **IMPORTANTE:**\n> * Las solicitudes poco serias serán rechazadas.\n> * Se evaluará actitud, nivel y compromiso."
+            )
+            .addFields(
+                { name: '📜 Requisito Mínimo', value: 'Disponer de Micrófono y Discord activo.', inline: true },
+                { name: '⏳ Evaluación', value: 'El Staff revisará tu perfil en breve.', inline: true }
+            )
+            .setColor(0x8B0000) 
+            .setImage(IMAGEN_FORMULARIO)
+            .setFooter({ text: "Forjamos lealtad y poder • Colmillos del Alba" })
+            .setTimestamp();
 
         const fila = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId("abrir_formulario").setLabel("📝 Responder Formulario").setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId("aceptar_miembro").setLabel("Aceptar").setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId("abrir_formulario").setLabel("📝 Iniciar Formulario").setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId("aceptar_miembro").setLabel("Aceptar").setStyle(ButtonStyle.Primary),
             new ButtonBuilder().setCustomId("rechazar_miembro").setLabel("Rechazar").setStyle(ButtonStyle.Danger),
             new ButtonBuilder().setCustomId("cerrar_ticket").setLabel("Cerrar").setStyle(ButtonStyle.Secondary)
         );
-
         await canal.send({ content: `<@&${STAFF_TICKETS_ID}> <@${interaction.user.id}>`, embeds: [embedFormulario], components: [fila] });
         await interaction.reply({ content: "✅ Ticket creado.", ephemeral: true });
     }
 
-    if (interaction.customId === "abrir_formulario") {
-        const modal = new ModalBuilder().setCustomId('modal_reclutamiento').setTitle('Formulario de Reclutamiento');
+if (interaction.customId === "abrir_formulario") {
+        const modal = new ModalBuilder().setCustomId('modal_reclutamiento').setTitle('SOLICITUD DE INGRESO');
+
         modal.addComponents(
-            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('f_nick').setLabel("Nick en Minecraft").setStyle(TextInputStyle.Short).setRequired(true)),
-            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('f_datos').setLabel("Edad / País").setStyle(TextInputStyle.Short).setRequired(true)),
-            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('f_especialidad').setLabel("Especialidad (PvP, Builder)").setStyle(TextInputStyle.Short).setRequired(true)),
-            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('f_exp').setLabel("Experiencia").setStyle(TextInputStyle.Paragraph).setRequired(true)),
-            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('f_mic').setLabel("¿Tienes Micrófono?").setStyle(TextInputStyle.Short).setRequired(true))
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('f_datos').setLabel("NICK / EDAD / SEXO / PAÍS").setPlaceholder("Ej: 1fsi / 16 / Masculino / Uruguay").setStyle(TextInputStyle.Short).setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('f_especialidad').setLabel("ESPECIALIDAD Y NIVEL PVP").setPlaceholder("Ej: PvP y Constructor - Nivel: Alto").setStyle(TextInputStyle.Short).setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('f_exp').setLabel("AÑOS DE EXPERIENCIA EN MC").setPlaceholder("¿Cuántos años llevas jugando?").setStyle(TextInputStyle.Short).setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('f_dispo').setLabel("DISPONIBILIDAD SEMANAL").setPlaceholder("Días y horarios en los que sueles conectar").setStyle(TextInputStyle.Paragraph).setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('f_mic').setLabel("¿TIENES MICRÓFONO Y DISCORD ACTIVO?").setPlaceholder("Sí/No - Explica brevemente").setStyle(TextInputStyle.Short).setRequired(true)
+            )
         );
         await interaction.showModal(modal);
-    }
-
-    if (interaction.customId === "aceptar_miembro" || interaction.customId === "rechazar_miembro") {
-        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
-        
-        const userId = interaction.channel.name.replace("verificacion-", "");
-        const member = await interaction.guild.members.fetch(userId).catch(() => null);
-
-        if (interaction.customId === "aceptar_miembro") {
-            if (member) await member.roles.add(CLAN_ROLE_ID).catch(() => {});
-            await interaction.reply({ content: "✅ Usuario aceptado y rol asignado." });
-            await interaction.channel.setParent(CATEGORIA_HISTORIAL).catch(() => {});
-        } else {
-            await interaction.reply({ content: "❌ Usuario rechazado. Baneo en 15s." });
-            setTimeout(async () => { if(member) await member.ban({ reason: "Rechazado" }).catch(() => {}); }, 15000);
-            await interaction.channel.setParent(CATEGORIA_HISTORIAL).catch(() => {});
-        }
     }
 
     if (interaction.customId === "cerrar_ticket") {
