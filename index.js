@@ -86,6 +86,14 @@ client.once("ready", async () => {
   ];
  
   await client.application.commands.set(commands);
+ // CONFIGURACIÓN DEL PERFIL (ESTADO)
+  client.user.setPresence({
+    activities: [{ 
+      name: 'ColmillosDelAlba Best Clan in Minecraft zzz', 
+      type: ActivityType.Custom 
+    }],
+    status: 'online',
+  });
   console.log("Comandos slash actualizados en Discord.");
  
   const canal = await client.channels.fetch(CANAL_INICIAL);
