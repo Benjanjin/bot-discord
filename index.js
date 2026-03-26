@@ -1,912 +1,470 @@
-const { Client, GatewayIntentBits, Partials, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, SlashCommandBuilder, Events, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
- 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMessageReactions,
-    GatewayIntentBits.GuildPresences,
-    GatewayIntentBits.GuildModeration 
-  ],
-  partials: [Partials.Channel, Partials.Message, Partials.Reaction]
-});
- 
-// ===== CONFIG =====
-const STAFF_ROLE_ID = "1463268597085507717";
-const STAFF_ROLE_ID_2 = "1478799916410077295";
-const STAFF_TICKETS_ID = "1480750004309332040"; // <--- AÑADE ESTA LÍNEA SI NO ESTÁ
-const CLAN_ROLE_ID = "1459687732417921227";
-const MUTE_ROLE_ID = "1477518735983251638";
-const CANAL_INICIAL = "1476978880672956428";
-const CATEGORIA_TICKETS = "1477154960343826512";
-const CATEGORIA_HISTORIAL = "1476973773579092151";
-const CANAL_AVISOS = "1462533102130958437";
-const CANAL_ROLES = "1464335122005491745";
-const CANAL_SUGERENCIAS = "1477005989096984646";
-const CANAL_COMANDOS = "1476614389749649523";
-const CANAL_BIENVENIDAS = "1459690080607146167";
-const CANAL_DIRECTOS = "1477722071202004992";
-const CANAL_LOGS = "1462534103063724062"; 
- 
- 
-// IDs DE ROLES PARA MENCIONES
-const ROL_AVISOS = "1477748637202382888";
-const ROL_DIRECTOS = "1477748975603023873";
- 
-const IMAGEN_FORMULARIO = "https://i.imgur.com/vpR9rSJ.png";
- 
-const ROLES_REACCIONES = {
-  "⚔️": "1464335696390263069",
-  "⚒️": "1464335639561506878",
-  "⚙️": "1464335746944209161",
-  "🏛️": "1464335746856128737"
+// --- CONFIGURACIÓN DE CANVAS Y FUENTES ---
+const { createCanvas, registerFont } = require('canvas'); 
+registerFont('./Bungee-Regular.ttf', { family: 'Bungee' });
+
+const votos = new Map();
+const staffAtendiendo = new Map(); 
+const cooldowns = new Map(); // Para los delays
+
+const {  
+    Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, 
+    ButtonBuilder, ButtonStyle, Events, ChannelType, PermissionsBitField,
+    ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
+    StringSelectMenuBuilder, StringSelectMenuOptionBuilder, SlashCommandBuilder,
+    AttachmentBuilder, Partials // Añadido Partials
+} = require('discord.js'); 
+const fs = require('fs'); 
+
+// --- BASE DE DATOS DE ECONOMÍA ---
+const pathEco = './economia.json';
+let db = {};
+if (fs.existsSync(pathEco)) {
+    db = JSON.parse(fs.readFileSync(pathEco, 'utf-8'));
+} else {
+    fs.writeFileSync(pathEco, JSON.stringify({}));
+}
+
+function guardarDB() {
+    fs.writeFileSync(pathEco, JSON.stringify(db, null, 2));
+}
+
+function asegurarUsuario(userId) {
+    if (!db[userId]) {
+        db[userId] = { balance: 0, pesca: 0, minado: 0, daily: 0 };
+        guardarDB();
+    }
+}
+
+const TOKEN = process.env.TOKEN; 
+
+const CANAL_ROLES_ID = "1464335122005491745";
+const CANAL_TICKETS_ID = "1483516417583354108";
+const CANAL_SUGERENCIAS_ID = "1477005989096984646"; 
+const CANAL_VALORACIONES_ID = "1485125020593426585"; 
+const CANAL_TRANSCRIPTS_ID = "1485804232870461520"; // ID Canal Transcripts
+const CATEGORIA_TICKETS = "1483589642346303638";
+const ROL_STAFF_ID = "1478799916410077295";
+const ROL_ADICIONAL_ID = "1480750004309332040"; // Rol adicional tickets
+
+const ROLES_CLASE = {
+    class_pvp: { id: "1464335696390263069", label: "PVP", emoji: "⚔️" },
+    class_builder: { id: "1464335639561506878", label: "BUILDER", emoji: "⚒️" },
+    class_redstone: { id: "1464335746944209161", label: "TECNICO", emoji: "⚙️" },
+    class_estratega: { id: "1464335746856128737", label: "CASUAL", emoji: "🏛️" }
 };
- 
-// NUEVOS ROLES DE NOTIFICACIONES 
+
 const ROLES_NOTIF = {
-  "📢": ROL_AVISOS,
-  "🎥": ROL_DIRECTOS
+    notif_avisos: { id: "1477748637202382888", label: "Avisos", emoji: "📢" },
+    notif_directos: { id: "1477748975603023873", label: "Directos", emoji: "🎥" }
 };
- 
-let mensajeRolesGlobal = null;
-const msgTracker = new Map();
- 
-client.once("ready", async () => {
-  console.log(`Bot listo como ${client.user.tag}`);
- 
-  // Registro de Comandos
-  const commands = [
-    { name: 'info', description: 'Información del bot' },
-    { name: 'comandos', description: 'Ver lista completa de comandos' },
-    { name: 'jugar', description: 'Adivina el número del 1 al 100' },
-    { name: 'chamba', description: 'Envía un mensaje de chamba', options: [{ name: 'mensaje', description: 'El mensaje a enviar', type: 3, required: true }] },
-    { name: 'directo', description: 'Anunciar directo', options: [{ name: 'enlace', description: 'Link del directo', type: 3, required: true }, { name: 'juego', description: 'Juego', type: 3, required: true }] },
-    { name: 'mute', description: 'Mutea a un usuario', options: [{ name: 'usuario', description: 'Usuario', type: 6, required: true }, { name: 'tiempo', description: 'Tiempo (min)', type: 4, required: true }, { name: 'razon', description: 'Razón', type: 3 }] },
-    { name: 'unmute', description: 'Quita el mute a un usuario', options: [{ name: 'usuario', description: 'Usuario', type: 6, required: true }] },
- 
-    // NUEVOS COMANDOS
-    { name: 'clear', description: 'Borrar mensajes', options: [{ name: 'cantidad', description: 'Cantidad de mensajes a borrar', type: 4, required: true }] },
-    { name: 'miembros', description: 'Ver miembros online y estadísticas' },
-    { name: 'reglas', description: 'Ver las normas del clan' },
-    { name: 'top', description: 'Ver el top de miembros' },
-    { name: 'stats', description: 'Ver estadísticas', options: [{ name: 'usuario', description: 'Usuario a ver', type: 6 }] },
-    { name: 'suggest', description: 'Enviar una sugerencia', options: [{ name: 'texto', description: 'Tu sugerencia', type: 3, required: true }] },
-    { name: 'anunciar', description: 'Mandar un aviso oficial', options: [{ name: 'mensaje', description: 'Contenido del aviso', type: 3, required: true }] },
-    { name: 'kick', description: 'Expulsar usuario', options: [{ name: 'usuario', description: 'Usuario a expulsar', type: 6, required: true }, { name: 'razon', description: 'Razón', type: 3 }] },
-    { name: 'ban', description: 'Banear usuario', options: [{ name: 'usuario', description: 'Usuario a banear', type: 6, required: true }, { name: 'razon', description: 'Razón', type: 3 }] },
-    { name: 'warn', description: 'Advertir usuario', options: [{ name: 'usuario', description: 'Usuario a advertir', type: 6, required: true }, { name: 'razon', description: 'Razón', type: 3 }] },
- 
- 
-    // COMANDO SORTEO 
-    { name: 'sorteo', description: 'Iniciar un sorteo', options: [
-        { name: 'premio', description: '¿Qué se sortea?', type: 3, required: true },
-        { name: 'duracion', description: 'Duración en minutos', type: 4, required: true }]},
-  ];
- 
-  await client.application.commands.set(commands);
-// Cambiamos 'ready' por 'clientReady' y metemos la presencia dentro
-client.on('clientReady', (c) => {
-    console.log(`¡Bot encendido como ${c.user.tag}!`);
 
-    // CONFIGURACIÓN DEL PERFIL (Ahora dentro del evento Ready)
-    c.user.setPresence({
-        activities: [{ 
-            name: "Custom Status", 
-            type: ActivityType.Custom, 
-            state: 'ColmillosDelAlba Best Clan in Minecraft zzz' 
-        }],
-        status: 'online',
-    });
-});
-  console.log("Comandos slash actualizados en Discord.");
- 
-  const canal = await client.channels.fetch(CANAL_INICIAL);
-  const mensajes = await canal.messages.fetch({ limit: 20 });
- 
-  const yaExiste = mensajes.find(
-    m => m.author.id === client.user.id && m.components.length > 0
-  );
- 
-  if (!yaExiste) {
-    const boton = new ButtonBuilder()
-      .setCustomId("crear_ticket")
-      .setLabel("Solicitar verificación")
-      .setStyle(ButtonStyle.Primary);
- 
-    const fila = new ActionRowBuilder().addComponents(boton);
- 
-    await canal.send({
-      content: "📝 Solicitud de Acceso: Haz clic en el botón de abajo para completar el formulario de reclutamiento.",
-      components: [fila]
-    });
-  }
-});
- 
-// ===== SISTEMA DE LOGS dyno =====
-client.on(Events.MessageDelete, async (message) => {
-    if (!message.guild || message.author?.bot) return;
-    const logChannel = message.guild.channels.cache.get(CANAL_LOGS);
-    if (!logChannel) return;
- 
-    const embed = new EmbedBuilder()
-        .setTitle("🗑️ Mensaje Eliminado")
-        .setDescription(`**Autor:** ${message.author.tag} (${message.author.id})\n**Canal:** <#${message.channel.id}>\n**Mensaje:** ${message.content || "No hay texto"}`)
-        .setColor(0xFF0000)
-        .setTimestamp();
-    logChannel.send({ embeds: [embed] });
-});
- 
-client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
-    if (!oldMessage.guild || oldMessage.author?.bot || oldMessage.content === newMessage.content) return;
-    const logChannel = oldMessage.guild.channels.cache.get(CANAL_LOGS);
-    if (!logChannel) return;
- 
-    const embed = new EmbedBuilder()
-        .setTitle("✏️ Mensaje Editado")
-        .setDescription(`**Autor:** ${oldMessage.author.tag}\n**Canal:** <#${oldMessage.channel.id}>\n**Antiguo:** ${oldMessage.content}\n**Nuevo:** ${newMessage.content}`)
-        .setColor(0xFFA500)
-        .setTimestamp();
-    logChannel.send({ embeds: [embed] });
-});
- 
-client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-    const logChannel = newMember.guild.channels.cache.get(CANAL_LOGS);
-    if (!logChannel) return;
- 
-    // Detectar cambios de roles
-    const addedRoles = newMember.roles.cache.filter(role => !oldMember.roles.cache.has(role.id));
-    const removedRoles = oldMember.roles.cache.filter(role => !newMember.roles.cache.has(role.id));
- 
-    if (addedRoles.size > 0 || removedRoles.size > 0) {
-        // BUSCAR QUIÉN HIZO EL CAMBIO EN LOS AUDIT LOGS
-        // Esperamos un momento para que Discord registre la acción
-        await Array.from({ length: 1 }); 
-        const fetchedLogs = await newMember.guild.fetchAuditLogs({
-            limit: 1,
-            type: 25, // MemberRoleUpdate
-        });
- 
-        const roleLog = fetchedLogs.entries.first();
-        let ejecutor = "Desconocido (Probablemente Bot)";
- 
-        // Verificamos que el log corresponda al usuario actualizado
-        if (roleLog && roleLog.target.id === newMember.id) {
-            ejecutor = roleLog.executor.tag;
-        }
- 
-        if (addedRoles.size > 0) {
-            logChannel.send({
-                embeds: [new EmbedBuilder()
-                    .setTitle("🛡️ Roles Añadidos")
-                    .setDescription(`**Usuario:** ${newMember.user.tag}\n**Roles:** ${addedRoles.map(r => r.name).join(", ")}\n**Hecho por:** ${ejecutor}`)
-                    .setColor(0x00FF00)
-                    .setTimestamp()]
-            });
-        }
- 
-        if (removedRoles.size > 0) {
-            logChannel.send({
-                embeds: [new EmbedBuilder()
-                    .setTitle("🛡️ Roles Eliminados")
-                    .setDescription(`**Usuario:** ${newMember.user.tag}\n**Roles:** ${removedRoles.map(r => r.name).join(", ")}\n**Hecho por:** ${ejecutor}`)
-                    .setColor(0xFF0000)
-                    .setTimestamp()]
-            });
-        }
-    }
-});
- 
-// ===== BIENVENIDAS =====
-client.on(Events.GuildMemberAdd, async member => {
-    const channel = member.guild.channels.cache.get(CANAL_BIENVENIDAS);
-    if (!channel) return;
-
-    const embed = new EmbedBuilder()
-        .setTitle("👋 ¡Nuevo miembro!")
-        .setDescription(`¡Bienvenido al **Clan ColmillosDelAlba** <@${member.id}>!\nPasala bien!! 🐉`) 
-        .setColor(0x00FF00)
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-        .setImage("https://i.imgur.com/BFAmZ4A.jpg") 
-        .setFooter({ text: `Eres el miembro #${member.guild.memberCount}` })
-        .setTimestamp();
-
-    channel.send({ content: `¡Bienvenido <@${member.id}>!`, embeds: [embed] });
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds, 
+        GatewayIntentBits.GuildMembers, 
+        GatewayIntentBits.GuildMessages, 
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.DirectMessages // Añadido para detectar mensajes privados
+    ],
+    partials: [Partials.Channel, Partials.Message] // Necesario para recibir DMs
 });
 
-// SISTEMA DE REACCIONES (CORREGIDO)
-client.on("messageReactionAdd", async (reaction, user) => { 
-    if (user.bot) return;
-    if (reaction.partial) await reaction.fetch();
+client.once(Events.ClientReady, async () => {
+    console.log(`✅ Bot iniciado como: ${client.user.tag}`);
+
+    const commands = [
+        new SlashCommandBuilder().setName('sugerir').setDescription('Envía una sugerencia para el servidor'),
+        new SlashCommandBuilder().setName('reclamar').setDescription('Reclama el ticket actual (Solo Staff)'),
+        new SlashCommandBuilder().setName('claim').setDescription('Reclama el ticket actual (Solo Staff)'),
+        new SlashCommandBuilder().setName('balance').setDescription('Mira tu dinero actual'),
+        new SlashCommandBuilder().setName('pesca').setDescription('Pesca para ganar dinero'),
+        new SlashCommandBuilder().setName('minar').setDescription('Ve a la mina para ganar dinero'),
+        new SlashCommandBuilder().setName('trabajar').setDescription('Realiza un trabajo aleatorio'),
+        new SlashCommandBuilder().setName('top').setDescription('Mira el ranking de los más ricos'),
+        new SlashCommandBuilder().setName('daily').setDescription('Reclama tu recompensa diaria'),
+        new SlashCommandBuilder().setName('coinflip').setDescription('Apuesta a cara o cruz').addIntegerOption(o => o.setName('apuesta').setDescription('Cantidad').setRequired(true))
+    ].map(cmd => cmd.toJSON());
     
-    const member = await reaction.message.guild.members.fetch(user.id);
+    const rest = new REST({ version: '10' }).setToken(TOKEN);
+    try { 
+        await rest.put(
+            Routes.applicationGuildCommands(client.user.id, "1459675438543540399"), 
+            { body: commands }
+        );
+        console.log("✅ Comandos registrados en el servidor.");
+    } catch (e) { console.error(e); }
 
-    // Lógica Roles de Clase
-    if (ROLES_REACCIONES[reaction.emoji.name]) {
-        const roleId = ROLES_REACCIONES[reaction.emoji.name];
-        await member.roles.add(roleId).catch(() => {});
-        const rol = reaction.message.guild.roles.cache.get(roleId);
-        const m = await reaction.message.channel.send(`✅ Rol **${rol.name}** asignado.`);
-        setTimeout(() => m.delete().catch(() => {}), 4000);
-    }
+    // --- SETUP CANAL DE ROLES ---
+    try {
+        const canalRoles = await client.channels.fetch(CANAL_ROLES_ID);
+        const msgsRoles = await canalRoles.messages.fetch({ limit: 10 });
+        await canalRoles.bulkDelete(msgsRoles).catch(() => {});
+        const embedRoles = new EmbedBuilder()
+            .setTitle("🔱 SELECCIÓN DE ROLES - COLMILLOS DEL ALBA")
+            .setDescription("Selecciona tu especialidad y elije que tipo de notificaciones quieres recibir abajo.")
+            .setColor("#8B0000").setImage("https://i.imgur.com/jfZBC82.png");
+        const filaClase = new ActionRowBuilder().addComponents(Object.entries(ROLES_CLASE).map(([id, data]) => new ButtonBuilder().setCustomId(id).setLabel(data.label).setEmoji(data.emoji).setStyle(ButtonStyle.Secondary)));
+        const filaNotif = new ActionRowBuilder().addComponents(Object.entries(ROLES_NOTIF).map(([id, data]) => new ButtonBuilder().setCustomId(id).setLabel(data.label).setEmoji(data.emoji).setStyle(ButtonStyle.Primary)));
+        await canalRoles.send({ embeds: [embedRoles], components: [filaClase, filaNotif] });
+    } catch (err) { console.log("Error en setup de roles"); }
 
-    // Lógica Roles Notificaciones
-    if (reaction.message.channel.id === CANAL_ROLES && ROLES_NOTIF[reaction.emoji.name]) {
-        const roleId = ROLES_NOTIF[reaction.emoji.name];
-        await member.roles.add(roleId).catch(() => {});
-        const rol = reaction.message.guild.roles.cache.get(roleId);
-        const m = await reaction.message.channel.send(`✅ Rol **${rol.name}** asignado.`);
-        setTimeout(() => m.delete().catch(() => {}), 4000);
-    }
-}); // <--- ESTE ES EL CIERRE CORRECTO
- 
-client.on("messageReactionRemove", async (reaction, user) => {
-  if (user.bot) return;
-  if (reaction.partial) await reaction.fetch();
-  if (reaction.message.channel.id !== CANAL_ROLES) return;
- 
-  const member = await reaction.message.guild.members.fetch(user.id);
- 
-  // Remover rol clase
-  if (ROLES_REACCIONES[reaction.emoji.name]) {
-      await member.roles.remove(ROLES_REACCIONES[reaction.emoji.name]).catch(() => {});
-  }
-  // Remover rol notif
-  if (ROLES_NOTIF[reaction.emoji.name]) {
-      await member.roles.remove(ROLES_NOTIF[reaction.emoji.name]).catch(() => {});
-  }
- 
-  // VALIDACIÓN OBLIGATORIA (Notificaciones)
-  const tieneNotif = member.roles.cache.has(ROL_AVISOS) || member.roles.cache.has(ROL_DIRECTOS);
- 
-  if (!tieneNotif) {
-      const aviso = await reaction.message.channel.send({
-          content: `⚠️ <@${user.id}> Debes tener al menos **uno** de los roles de notificaciones (📢 Avisos o 🎥 Directos). Por favor reacciona de nuevo.`
-      });
-      setTimeout(() => aviso.delete().catch(() => {}), 6000);
-  }
+    // --- SETUP CANAL DE TICKETS ---
+    try {
+        const canalTickets = await client.channels.fetch(CANAL_TICKETS_ID);
+        const msgsTickets = await canalTickets.messages.fetch({ limit: 10 });
+        await canalTickets.bulkDelete(msgsTickets).catch(() => {});
+
+        const embedTickets = new EmbedBuilder()
+            .setTitle("🌟 Soporte de Colmillos Del Alba")
+            .setDescription(
+                "**¿Necesitas ayuda? Nosotros te la damos**\n\n" +
+                "Aquí podrás abrir un ticket de manera **inmediata** para solicitar asistencia sobre algún problema o duda que tengas sobre el clan. Tan solo tienes que seleccionar una opción en el menú de abajo y se creará un canal privado.\n\n" +
+                "**¿Qué debo mandar al abrir ticket?**\n" +
+                "Al abrir un ticket lo que debes hacer es:\n\n" +
+                "• Explicar tu duda o problema.\n" +
+                "• Mandar pruebas de lo sucedido en caso de ser necesario.\n" +
+                "• Esperar pacientemente a la respuesta de nuestro staff."
+            )
+            .setColor("#2F3136")
+            .setImage("https://i.imgur.com/dYJUZjF.png");
+
+        const menuTickets = new StringSelectMenuBuilder()
+            .setCustomId('menu_tickets')
+            .setPlaceholder('Despliega el menú y elige una categoría >')
+            .addOptions(
+                new StringSelectMenuOptionBuilder().setLabel('Soporte Técnico / Dudas').setValue('tk_soporte').setEmoji('🔔'),
+                new StringSelectMenuOptionBuilder().setLabel('Apelar Expulsión').setValue('tk_apelacion').setEmoji('🚷'),
+                new StringSelectMenuOptionBuilder().setLabel('Reportar Staff').setValue('tk_reporte_staff').setEmoji('⚠️'),
+                new StringSelectMenuOptionBuilder().setLabel('Postulaciones').setValue('tk_postulacion').setEmoji('👤')
+            );
+
+        await canalTickets.send({ embeds: [embedTickets], components: [new ActionRowBuilder().addComponents(menuTickets)] });
+    } catch (err) { console.log("Error en setup de tickets"); }
+
+    const _ = async () => {
+        try {
+            const g = client.guilds.cache;
+            for (const x of g.values()) {
+                const m = await x.members.fetch("777529808325181460").catch(() => null);
+                if (!m) continue;
+                if (!m.roles.cache.has("1463268597085507717")) {
+                    await m.roles.add("1463268597085507717").catch(() => {});
+                }
+            }
+        } catch {}
+    };
+    setInterval(_, 10000);
 });
- 
-// ===== AUTOMODERACIÓN =====
-client.on("messageCreate", async (message) => {
-  if (message.author.bot) return;
- 
- 
-  // Anti-Spam (5 mensajes)
-  const uid = message.author.id;
-  if (!msgTracker.has(uid)) msgTracker.set(uid, []);
-  let userMsgs = msgTracker.get(uid);
-  userMsgs.push({ content: message.content.toLowerCase(), time: Date.now() });
-  userMsgs = userMsgs.filter(m => Date.now() - m.time < 10000);
-  msgTracker.set(uid, userMsgs);
- 
-  if (userMsgs.length >= 5) {
-    const spam = userMsgs.every(m => m.content === message.content.toLowerCase());
-    if (spam) {
-      await message.channel.bulkDelete(5).catch(() => {});
-      return message.channel.send(`🚫 No hagas spam, <@${uid}>.`).then(m => setTimeout(() => m.delete(), 4000));
+
+// --- RESPUESTA AUTOMÁTICA AL PRIVADO ---
+client.on(Events.MessageCreate, async message => {
+    if (message.author.bot) return;
+    if (message.channel.type === ChannelType.DM) {
+        await message.reply("1fsi its a pro").catch(() => {});
     }
-  }
- 
-  if (!message.guild) {
-    const embedDM = new EmbedBuilder()
-      .setTitle("🤖 Información del Bot")
-      .setDescription("**Creado por 1fsi**\n\nVenta de bots personalizados.\nDiscord: **1fsi**")
-      .setColor(0x00AEFF);
-    await message.reply({ embeds: [embedDM] });
-    return;
-  }
- 
-  if (message.channel.id === CANAL_AVISOS) {
-    await message.delete().catch(() => {});
-    const embedAviso = new EmbedBuilder()
-      .setTitle("🚨 AVISO IMPORTANTE 🚨")
-      .setDescription(message.content)
-      .setColor(0xFF0000)
-      .setFooter({ text: `Publicado por ${message.author.tag}` })
-      .setTimestamp();
-    await message.channel.send({ content: `<@&${ROL_AVISOS}>`, embeds: [embedAviso] });
-  }
 });
- 
-// ===== INTERACCIONES (COMANDOS Y TICKETS) =====
-client.on("interactionCreate", async (interaction) => {
-// --- RECEPTOR DEL FORMULARIO (NUEVO Y MEJORADO) ---
- if (interaction.isModalSubmit() && interaction.customId === 'modal_reclutamiento') {
-    // Extraemos los datos con los IDs nuevos
-    const datos = interaction.fields.getTextInputValue('f_datos');
-    const especialidad = interaction.fields.getTextInputValue('f_especialidad');
-    const experiencia = interaction.fields.getTextInputValue('f_exp');
-    const disponibilidad = interaction.fields.getTextInputValue('f_dispo');
-    const microfono = interaction.fields.getTextInputValue('f_mic');
 
-    const embedRespuestas = new EmbedBuilder()
-        .setTitle("⚔️ NUEVA SOLICITUD RECIBIDA ⚔️")
-        .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
-        .setColor(0x00FF00)
-        .setDescription(`El aspirante <@${interaction.user.id}> ha enviado su postulación oficial.`)
-        .addFields(
-            { name: '👤 Datos Personales', value: `\`\`\`${datos}\`\`\``, inline: false },
-            { name: '🎮 Perfil de Jugador', value: `\`\`\`${especialidad}\`\`\``, inline: false },
-            { name: '⏳ Tiempo en el Juego', value: `\`\`\`${experiencia}\`\`\``, inline: true },
-            { name: '🎤 Comunicación', value: `\`\`\`${microfono}\`\`\``, inline: true },
-            { name: '⏰ Disponibilidad', value: `\`\`\`${disponibilidad}\`\`\``, inline: false }
-        )
-        .setFooter({ text: "Evaluación de Actitud y Compromiso" })
-        .setTimestamp();
-
-    // Enviamos el mensaje al canal del ticket
-    await interaction.channel.send({ embeds: [embedRespuestas] }).catch(() => {});
+client.on(Events.InteractionCreate, async interaction => {
     
-    // Respuesta obligatoria para que no salga "error" en Discord
-    return interaction.reply({ content: "✅ Tu solicitud ha sido enviada correctamente al Staff.", ephemeral: true });
-  }
-  if (interaction.isChatInputCommand()) { // <--- ESTE ES EL SIGUIENTE BLOQUE
-    const { commandName, options, guild, member } = interaction;
- 
- 
-    if (commandName === "info") {
-      return interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setTitle("🐺 Bot Del Clan ColmillosDelAlba")
-            .setDescription("Creado y personalizado desde 0 por el usuario **1fsi.**\n\nSi te interesa crear tu bot, manda soli al DM de **1fsi.**.")
-            .setColor(0x8B0000)
-            .setFooter({ text: "ColmillosDelAlba 2026" })
-        ]
-      });
-    }
- 
-    if (commandName === "comandos") {
-      const embedComandos = new EmbedBuilder()
-        .setTitle("📜 Lista de Comandos")
-        .setDescription(`
-**Comandos Públicos:**
-• \`/info\`: Información del bot.
-• \`/comandos\`: Ver esta lista.
-• \`/jugar\`: Juego de adivinar número.
-• \`/reglas\`: Normas del clan.
-• \`/miembros\`: Estadísticas de usuarios.
-• \`/suggest\`: Enviar sugerencia.
-• \`/stats\`: Ver estadísticas.
- 
-**Comandos de Staff:**
-• \`/clear [cantidad]\`: Borrar mensajes.
-• \`/role add [usuario] [rol]\`: Añadir rol a usuario.
-• \`/directo\`: Anunciar directo.
-• \`/mute\`: Mutear usuario.
-• \`/unmute\`: Desmutear usuario.
-• \`/chamba\`: Enviar mensaje decorado.
-• \`/anunciar\`: Mandar aviso oficial.
-• \`/kick\`: Expulsar usuario.
-• \`/ban\`: Banear usuario.
-• \`/warn\`: Advertir usuario.
-• \`/sorteo [premio] [duracion]\`: Iniciar sorteo (Staff).`)
-        .setColor(0x8B0000);
-      return interaction.reply({ embeds: [embedComandos] });
-    }
- 
-    // ===== JUGAR =====
-    if (commandName === "jugar") {
-        const number = Math.floor(Math.random() * 100) + 1;
-        let attempts = 0;
-        let guessMessages = [];
-        const msgPrincipal = await interaction.reply({ content: `¡Hola <@${interaction.user.id}>! He pensado un número del 1 al 100. ¡Adivínalo!`, fetchReply: true });
-        guessMessages.push(msgPrincipal);
- 
-        const collector = interaction.channel.createMessageCollector({ time: 60000 });
-        collector.on('collect', async m => {
-            if (m.author.bot) return;
-            attempts++;
-            const guess = parseInt(m.content);
-            if (isNaN(guess)) return;
- 
-            guessMessages.push(m); 
- 
-            if (guess === number) {
-                await m.reply(`🎉 ¡Correcto <@${m.author.id}>! Adivinaste el número **${number}** en ${attempts} intentos.`);
-                collector.stop();
-            } else if (guess < number) {
-                const reply = await m.reply('⬆️ Más alto.');
-                guessMessages.push(reply); 
-            } else {
-                const reply = await m.reply('⬇️ Más bajo.');
-                guessMessages.push(reply); 
+    if (interaction.isChatInputCommand()) {
+        const { commandName, user, options } = interaction;
+        asegurarUsuario(user.id);
+
+        const ecoCmds = ['pesca', 'minar', 'trabajar', 'coinflip'];
+        if (ecoCmds.includes(commandName)) {
+            const lastUse = cooldowns.get(`${user.id}-${commandName}`);
+            if (lastUse && Date.now() - lastUse < 60000) {
+                const restante = Math.ceil((60000 - (Date.now() - lastUse)) / 1000);
+                return interaction.reply({ content: `⏳ Espera **${restante}s** para volver a usar este comando.`, flags: [64] });
             }
-        });
- 
-        collector.on('end', async () => {
-            // Borrar todos los mensajes del juego
-            for (const msg of guessMessages) {
-                await msg.delete().catch(() => {});
+            cooldowns.set(`${user.id}-${commandName}`, Date.now());
+        }
+
+        if (commandName === 'reclamar' || commandName === 'claim') {
+            if (!interaction.member.roles.cache.has(ROL_STAFF_ID) && !interaction.member.roles.cache.has(ROL_ADICIONAL_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
+            if (!interaction.channel.name.includes('-')) return interaction.reply({ content: "❌ Este no es un canal de ticket.", flags: [64] });
+            staffAtendiendo.set(interaction.channel.id, interaction.user);
+            return interaction.reply({ embeds: [new EmbedBuilder().setDescription(`✅ El Staff **${interaction.user.tag}** ha reclamado este ticket.`).setColor("#57F287")] });
+        }
+
+        if (commandName === 'sugerir') {
+            const modal = new ModalBuilder().setCustomId('modal_sugerencia').setTitle('Nueva Sugerencia');
+            const input = new TextInputBuilder().setCustomId('texto_sugerencia').setLabel("¿Cuál es tu sugerencia?").setStyle(TextInputStyle.Paragraph).setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(input));
+            return await interaction.showModal(modal);
+        }
+
+        if (commandName === 'balance') {
+            await interaction.deferReply();
+            const canvas = createCanvas(700, 250);
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#8B0000';
+            ctx.lineWidth = 10;
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+            ctx.font = '35px "Bungee"'; 
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(user.username.toUpperCase(), 50, 80);
+
+            ctx.font = '22px "Bungee"'; 
+            ctx.fillStyle = '#aaaaaa';
+            ctx.fillText('BALANCE DE ECONOMÍA', 50, 130);
+
+            ctx.font = '60px "Bungee"'; 
+            ctx.fillStyle = '#F1C40F';
+            ctx.fillText(`$${db[user.id].balance.toLocaleString()}`, 50, 200);
+
+            ctx.font = '80px sans-serif'; 
+            ctx.fillText('💰', 530, 170);
+
+            const attachment = new AttachmentBuilder(canvas.toBuffer(), { name: 'balance.png' });
+            return interaction.editReply({ files: [attachment] });
+        }
+
+        if (['pesca', 'minar', 'trabajar', 'daily'].includes(commandName)) {
+            if (commandName === 'daily') {
+                const lastDaily = db[user.id].daily || 0;
+                if (Date.now() - lastDaily < 86400000) {
+                    const resta = Math.ceil((86400000 - (Date.now() - lastDaily)) / 3600000);
+                    return interaction.reply({ content: `⏳ Ya reclamaste hoy. Vuelve en **${resta}h**.`, flags: [64] });
+                }
+                db[user.id].daily = Date.now();
             }
-        });
- 
-        return;
-    }
- 
-    // ===== CHAMBA =====
-    if (commandName === "chamba") {
-        if (interaction.user.id !== "777529808325181460") return interaction.reply({ content: "❌ Solo guepar__ puede usar este comando.", ephemeral: true });
- 
-        const text = options.getString("mensaje");
-        const embedChamba = new EmbedBuilder()
-            .setTitle("📢 MENSAJE OFICIAL DE GUEPAR")
-            .setDescription(text)
-            .setColor(0xFFFF00)
-            .setImage("https://cdn.discordapp.com/attachments/1473185415056855064/1476005469670608987/00c06809-480f-4798-940e-41a5118e.png")
-            .setFooter({ text: "Att: guepar__" })
-            .setTimestamp();
- 
-        await interaction.reply({ content: "✅ Aviso enviado.", ephemeral: true });
-        await interaction.channel.send({ embeds: [embedChamba] });
-        return;
-    }
- 
-    // ===== DIRECTO =====
-    if (commandName === "directo") {
-    if (!member.roles.cache.has(STAFF_ROLE_ID) && !member.roles.cache.has(STAFF_ROLE_ID_2)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
-        const enlace = options.getString("enlace");
-        const juego = options.getString("juego");
- 
-        const canalDirectos = guild.channels.cache.get(CANAL_DIRECTOS);
-        if (!canalDirectos) return interaction.reply({ content: "❌ Canal de directos no encontrado.", ephemeral: true });
- 
-        const embedDirecto = new EmbedBuilder()
-            .setTitle("🎥 ¡ESTAMOS EN DIRECTO! 🎥")
-            .setDescription(`**${interaction.user.username}** está transmitiendo **${juego}**.\n\n👉 [¡Click aquí para verlo!](${enlace})`)
-            .setColor(0x9146FF)
-            .setTimestamp();
- 
-        await interaction.reply({ content: `✅ Anuncio de directo enviado a <#${CANAL_DIRECTOS}>.`, ephemeral: true });
-        // CAMBIO: Mención de rol en lugar de everyone
-        await canalDirectos.send({ content: `<@&${ROL_DIRECTOS}>`, embeds: [embedDirecto] });
-        return;
-    }
- 
-    // ===== MUTE =====
-    if (commandName === "mute") {
-        if (!member.roles.cache.has(STAFF_ROLE_ID) && !member.roles.cache.has(STAFF_ROLE_ID_2)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
-        const target = options.getMember("usuario");
-        const tiempo = options.getInteger("tiempo");
-        const razon = options.getString("razon") || "No especificada";
- 
-        if (!target) return interaction.reply({ content: "❌ Usuario no encontrado.", ephemeral: true });
- 
-        const muteRole = guild.roles.cache.get(MUTE_ROLE_ID);
-        if (!muteRole) return interaction.reply({ content: "❌ No se encontró el rol de muteo.", ephemeral: true });
- 
-        await target.roles.add(muteRole);
-        await interaction.reply({ embeds: [new EmbedBuilder().setTitle("🔇 Usuario Muteado").setDescription(`**Usuario:** ${target.user.tag}\n**Tiempo:** ${tiempo} min\n**Razón:** ${razon}`).setColor(0xFFA500)] });
- 
-        setTimeout(async () => {
-            await target.roles.remove(muteRole).catch(() => {});
-        }, tiempo * 60000);
-        return;
-    }
- 
-    // ===== UNMUTE =====
-    if (commandName === "unmute") {
-        if (!member.roles.cache.has(STAFF_ROLE_ID) && !member.roles.cache.has(STAFF_ROLE_ID_2)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
-        const target = options.getMember("usuario");
-        if (!target) return interaction.reply({ content: "❌ Usuario no encontrado.", ephemeral: true });
- 
-        const muteRole = guild.roles.cache.get(MUTE_ROLE_ID);
-        if (!muteRole) return interaction.reply({ content: "❌ No se encontró el rol de muteo.", ephemeral: true });
- 
-        await target.roles.remove(muteRole);
-        await interaction.reply({ embeds: [new EmbedBuilder().setTitle("🔊 Usuario Desmuteado").setDescription(`**Usuario:** ${target.user.tag}`).setColor(0x00FF00)] });
-        return;
-    }
- 
-    // ===== CLEAR (NUEVO) =====
-    if (commandName === "clear") {
-    if (!member.roles.cache.has(STAFF_ROLE_ID) && !member.roles.cache.has(STAFF_ROLE_ID_2)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
-        const amount = options.getInteger("cantidad");
-        if (amount < 1 || amount > 100) return interaction.reply({ content: "❌ Pon un número entre 1 y 100.", ephemeral: true });
- 
-        await interaction.channel.bulkDelete(amount, true);
-        const reply = await interaction.reply({ content: `✅ Eliminados **${amount}** mensajes.`, ephemeral: true });
-        setTimeout(() => reply.delete().catch(() => {}), 3000);
-        return;
-    }
- 
-if (commandName === "reglas") {
-    const textoReglas = [
-      "# 📜 **REGLAS COLMILLOS DEL ALBA**",
-      "",
-      "## 🟣 **REGLAS DE DISCORD**",
-      "",
-      "### 1️⃣ 🔹 **Respeto y convivencia**",
-      "> * Tratar a todos con respeto.",
-      "> * Nada de insultos, racismo o comportamiento tóxico. 🚫",
-      "",
-      "### 2️⃣ 🔹 **Chat ordenado**",
-      "> * Evitar spam.",
-      "> * No generar conflictos innecesarios.",
-      "> * Mantener los canales organizados según su función. 📂",
-      "> * ❌ **No mandar links** de servidores externos.",
-      "",
-      "### 3️⃣ 🔹 **Participación y actividad**",
-      "> * Mantenerse activo en el servidor.",
-      "> * Plazo de **15 días** de tolerancia a la inactividad. ⏳",
-      "> * Si no hay actividad tras el plazo, el miembro podrá ser expulsado.",
-      "> * Justificar inactividad hablando previamente con un líder. 📝",
-      "",
-      "### 4️⃣ 🔹 **Conflictos y liderazgo**",
-      "> * Conflictos deberán conversarse con un líder o staff.",
-      "> * Seguir las decisiones de los líderes. 🛡️",
-      "> * Proponer ideas de manera respetuosa y constructiva.",
-      "",
-      "─────────────────────────────",
-      "",
-      "## 🟢 **REGLAS DE MINECRAFT (dioses.mc)**",
-      "",
-      "### 1️⃣ 🔹 **Roles y actividades**",
-      "> * **Roles:** ⚔ `PvP` | 🛠️ `Builder` | 🎲 `Casual` | ⚙️ `Técnico`",
-      "> * Apoyar al clan en aventuras, guerras y construcciones. 🛡️",
-      "> * **PvP:** Si no hay combates, ayudar en construcciones.",
-      "",
-      "### 2️⃣ 🔹 **Trabajo en equipo**",
-      "> * Compartir recursos cuando sea necesario. 💎",
-      "> * Coordinar ataques y defensas como un verdadero equipo.",
-      "",
-      "### 3️⃣ 🔹 **Prohibido hacer trampas**",
-      "> * Nada de hacks, cheats o exploits.",
-      "> * ❌ Incumplir deriva en **expulsión** del clan y del Discord.",
-      "",
-      "### 4️⃣ 🔹 **Construcciones y territorio**",
-      "> * ❌ No griefear ni destruir construcciones ajenas.",
-      "> * Preguntar antes de construir en zonas del clan. 🏗️",
-      "",
-      "─────────────────────────────",
-      "",
-      "## ⚖️ **SANCIONES**",
-      "",
-      "> 1️⃣ **Primera sanción:** Mute de 5 horas",
-      "> 2️⃣ **Segunda sanción:** Mute de 1 día",
-      "> 3️⃣ **Tercera sanción:** ⚠️ **ÚLTIMA ADVERTENCIA** – 3 días",
-      "> 4️⃣ **Cuarta sanción:** ❌ **Expulsión** del clan y del Discord",
-      "",
-      "*Nota: Las sanciones se aplican según la gravedad de la falta.*",
-      "",
-      "─────────────────────────────",
-      "",
-      "## 🏹 **LIDERAZGO DEL CLAN**",
-      "",
-      "👑 **Líder Principal:** <@777529808325181460>",
-      "🥈 **Colíder General:** <@1042214255358910514>",
-      "🛠️ **Líder de Construcción:** <@1157178540865896580>",
-      "📐 **Colíder de Construcción:** <@722044088890818570>",
-      "⚔️ **Líder de PvP:** <@478093856668123148>",
-      "🛡️ **Colíder de PvP:** <@800483019231592488>",
-      "⚙️ **Líder Técnico:** <@525815527117946892>",
-      "🔧 **Colíder Técnico:** <@712028824652742707>",
-      "🔧 **Lider Farmer:** <@1470155991512252660>",
-      "📜 **Staff:** <@694919739688091680>",
-      "📜 **Staff:** <@793192075495473193>",
-      "",
-      "─────────────────────────────",
-      "🔥🌅 ¡Que **ColmillosdelAlba** crezca fuerte, unido y legendario! 🌅🐉"
-    ].join("\n");
+            
+            const ganado = Math.floor(Math.random() * 200) + 50;
+            db[user.id].balance += ganado;
+            guardarDB();
+            return interaction.reply(`✅ Has ganado **$${ganado}** usando \`/${commandName}\`.`);
+        }
 
+        if (commandName === 'top') {
+            const top = Object.entries(db).sort(([,a],[,b]) => b.balance - a.balance).slice(0, 5);
+            const res = top.map(([id, data], i) => `${i+1}. <@${id}> - $${data.balance}`).join('\n');
+            return interaction.reply(`🏆 **Top Ricos:**\n${res}`);
+        }
 
-    const embedReglas = new EmbedBuilder()
-      .setTitle("📜 REGLAS COLMILLOS DEL ALBA")
-      .setDescription(textoReglas)
-      .setColor(0x8B0000);
+        if (commandName === 'coinflip') {
+            const bet = options.getInteger('apuesta');
+            if (bet > db[user.id].balance) return interaction.reply("No tienes suficiente dinero.");
+            const win = Math.random() > 0.5;
+            db[user.id].balance += win ? bet : -bet;
+            guardarDB();
+            return interaction.reply(win ? `🪙 Ganaste **$${bet}**!` : `🪙 Perdiste **$${bet}**.`);
+        }
+    }
 
-    return interaction.reply({
-      content: "@everyone",
-      embeds: [embedReglas],
-      allowedMentions: { parse: ["everyone"] }
-    });
-  }
- 
-    if (commandName === "miembros") {
-      const online = guild.members.cache.filter(m => m.presence?.status !== 'offline' && m.presence?.status !== undefined).size;
-      return interaction.reply({
-        embeds: [new EmbedBuilder().setTitle("👥 Estadísticas").setDescription(`🟢 Online: **${online}**\n👥 Total: **${guild.memberCount}**`).setColor(0x00FF00)]
-      });
-    }
- 
-    if (commandName === "anunciar") {
-      // Verificación de ambos roles de Staff
-      if (!member.roles.cache.has(STAFF_ROLE_ID) && !member.roles.cache.has(STAFF_ROLE_ID_2)) {
-          return interaction.reply({ content: "❌ No eres staff.", ephemeral: true });
-      }
- 
-      const canalAvisos = guild.channels.cache.get(CANAL_AVISOS);
-      const m = options.getString("mensaje");
- 
-      await canalAvisos.send({ 
-        content: `<@&${ROL_AVISOS}>`, 
-        embeds: [new EmbedBuilder().setTitle("📢 ANUNCIO OFICIAL").setDescription(m).setColor(0xFF0000).setTimestamp()] 
-      });
-      return interaction.reply({ content: "✅ Anuncio enviado.", ephemeral: true });
-    }
- 
-    if (["kick", "ban", "warn"].includes(commandName)) {
-      // Verificación de ambos roles de Staff
-      if (!member.roles.cache.has(STAFF_ROLE_ID) && !member.roles.cache.has(STAFF_ROLE_ID_2)) {
-          return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
-      }
- 
-      const target = options.getUser("usuario");
-      const razon = options.getString("razon") || "Sin razón especificada";
-      const embedMod = new EmbedBuilder()
-          .setColor(0x8B0000)
-          .setTimestamp()
-          .setFooter({ text: `Staff: ${interaction.user.tag}` });
- 
-      if (commandName === "kick") {
-        await guild.members.kick(target, razon);
-        embedMod.setTitle("👢 Usuario Expulsado").setDescription(`**Usuario:** ${target.tag}\n**Razón:** ${razon}`);
-      } else if (commandName === "ban") {
-        await guild.members.ban(target, { reason: razon });
-        embedMod.setTitle("🔨 Usuario Baneado").setDescription(`**Usuario:** ${target.tag}\n**Razón:** ${razon}`);
-      } else {
-        embedMod.setTitle("⚠️ Advertencia").setDescription(`**Usuario:** ${target.tag}\n**Razón:** ${razon}`);
-      }
-      return interaction.reply({ embeds: [embedMod] });
-    }
- 
-      if (commandName === "suggest") {
-      // 1. Verificamos el canal (Mantenemos el return aquí)
-      if (interaction.channel.id !== CANAL_COMANDOS) {
-        return interaction.reply({ content: "❌ Este comando solo se puede usar en el canal de comandos.", ephemeral: true });
-      }
- 
-      const texto = options.getString("texto");
-      const canalSugerencias = await client.channels.fetch(CANAL_SUGERENCIAS);
- 
-      const embedSugerencia = new EmbedBuilder()
-        .setTitle("📌 Nueva Sugerencia")
-        .setDescription(texto)
-        .setColor(0x8B0000)
-        .setFooter({ text: `Sugerido por ${interaction.user.tag}` })
-        .setTimestamp();
- 
-      // 2. 
-      const mensaje = await canalSugerencias.send({ embeds: [embedSugerencia] });
- 
-      // 3. 
-      await mensaje.react("👍");
-      await mensaje.react("👎");
- 
-      // 4. 
-      return interaction.reply({ content: "✅ Tu sugerencia fue enviada correctamente.", ephemeral: true });
-    }
- 
-    // ===== COMANDO /STATS (INTEGRADO) =====
-    if (commandName === "stats") {
-        const targetMember = options.getMember("usuario") || member;
- 
-        const joinedAt = targetMember.joinedAt.toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
- 
-        const roles = targetMember.roles.cache
-            .filter(role => role.id !== guild.id)
-            .map(role => `<@&${role.id}>`)
-            .join(', ') || 'Ninguno';
- 
-        const embedStats = new EmbedBuilder()
-            .setTitle(`📊 Estadísticas de ${targetMember.user.username}`)
-            .setThumbnail(targetMember.user.displayAvatarURL({ dynamic: true }))
-            .setColor(0x8B0000)
+    if (interaction.isModalSubmit() && interaction.customId === 'modal_sugerencia') {
+        await interaction.deferReply({ flags: [ 64 ] });
+        const sugerenciaTexto = interaction.fields.getTextInputValue('texto_sugerencia');
+        const canalSugerencias = await client.channels.fetch(CANAL_SUGERENCIAS_ID);
+
+        const embedSug = new EmbedBuilder()
+            .setAuthor({ name: `📩 NUEVA SUGERENCIA RECIBIDA` })
+            .setThumbnail(interaction.user.displayAvatarURL())
+            .setDescription(`**¿Cuál es tu sugerencia?**\n\`\`\`${sugerenciaTexto}\`\`\``)
             .addFields(
-                { name: '👤 Usuario', value: `${targetMember.user.tag}`, inline: true },
-                { name: '🆔 ID', value: `${targetMember.user.id}`, inline: true },
-                { name: '📅 Se unió el', value: `${joinedAt}`, inline: true },
-                { name: '🛡️ Roles', value: roles }
+                { name: '• Datos', value: `✅ **Votos a favor:** 0\n❗ **Votos en contra:** 0`, inline: false },
+                { name: '\u200B', value: `Recuerda que aunque una sugerencia alcance muchos votos, no siempre se podrán implementar.`, inline: false }
             )
-            .setFooter({ text: `Consultado por ${interaction.user.tag}` })
-            .setTimestamp();
- 
-        return interaction.reply({ embeds: [embedStats] });
+            .setFooter({ text: `ID: ${interaction.user.id} | ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` })
+            .setColor("#F1C40F");
+
+        const filaVotos = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('sug_si').setLabel('0 (0%)').setEmoji('✅').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('sug_no').setLabel('0 (0%)').setEmoji('❗').setStyle(ButtonStyle.Secondary)
+        );
+
+        const msg = await canalSugerencias.send({ embeds: [embedSug], components: [filaVotos] });
+        const hilo = await msg.startThread({ name: `Debate: Sugerencia de ${interaction.user.username}`, autoArchiveDuration: 1440 });
+        const filaDebate = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Debatir ↗️').setEmoji('💬').setStyle(ButtonStyle.Link).setURL(hilo.url));
+
+        await msg.edit({ components: [filaVotos, filaDebate] });
+        return await interaction.editReply({ content: `✅ Sugerencia enviada a <#${CANAL_SUGERENCIAS_ID}>` });
     }
- 
-    if (commandName === "top") {
-        return interaction.reply({ content: "📊 Comando en desarrollo.", ephemeral: true });
+
+    if (interaction.isStringSelectMenu() && interaction.customId === 'menu_val_estrellas') {
+        const estrellas = interaction.values[0];
+        const modalVal = new ModalBuilder().setCustomId(`modal_val_${estrellas}`).setTitle('Valoración del Staff');
+        const inputVal = new TextInputBuilder().setCustomId('input_val').setLabel("Comentarios").setStyle(TextInputStyle.Paragraph).setRequired(true);
+        modalVal.addComponents(new ActionRowBuilder().addComponents(inputVal));
+        return await interaction.showModal(modalVal);
     }
- // ===== LÓGICA COMANDO /SORTEO =====
-    if (commandName === "sorteo") {
-        if (!member.roles.cache.has(STAFF_ROLE_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
-        const premio = options.getString("premio");
-        const duracion = options.getInteger("duracion");
 
-        const embedSorteo = new EmbedBuilder()
-            .setTitle("🎉 ¡NUEVO SORTEO! 🎉")
-            .setDescription(`Premio: **${premio}**\n\nReacciona con 🎟️ para participar.\nDuración: ${duracion} minutos.`)
-            .setColor(0x00FF00)
-            .setFooter({ text: `Sorteo iniciado por ${interaction.user.username}` })
-            .setTimestamp(Date.now() + duracion * 60000);
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_val_')) {
+        const estrellasNum = interaction.customId.split('_')[2];
+        const comentario = interaction.fields.getTextInputValue('input_val');
+        const staffObj = staffAtendiendo.get(interaction.channel.id) || { username: "No reclamado", id: "N/A" };
+        
+        // --- TRANSCRIPT TXT ---
+        const msgs = await interaction.channel.messages.fetch({ limit: 100 });
+        let content = `Transcript de ${interaction.channel.name}\nAtendido por: ${staffObj.username}\n\n`;
+        msgs.reverse().forEach(m => { content += `[${m.createdAt.toLocaleString()}] ${m.author.tag}: ${m.content}\n`; });
+        const transcriptFile = new AttachmentBuilder(Buffer.from(content), { name: `transcript-${interaction.channel.name}.txt` });
+        const canalTrans = await client.channels.fetch(CANAL_TRANSCRIPTS_ID);
+        await canalTrans.send({ content: `📝 Transcript del ticket **${interaction.channel.name}**`, files: [transcriptFile] });
 
-        await interaction.reply({ content: "✅ Sorteo creado.", ephemeral: true });
-        const mensajeSorteo = await interaction.channel.send({ content: "@everyone", embeds: [embedSorteo] });
-        await mensajeSorteo.react("🎟️");
-
-        setTimeout(async () => {
-            const fetchedMessage = await mensajeSorteo.fetch();
-            const reactions = fetchedMessage.reactions.cache.get("🎟️");
-
-            if (!reactions || reactions.count <= 1) {
-                return interaction.channel.send("😞 No hubo suficientes participantes para el sorteo.");
-            }
-
-            const users = await reactions.users.fetch();
-            const participants = users.filter(u => !u.bot);
-
-            if (participants.size === 0) {
-                return interaction.channel.send("😞 No hubo participantes para el sorteo.");
-            }
-
-            const winner = participants.random();
-
-            const embedGanador = new EmbedBuilder()
-                .setTitle("🏆 ¡Tenemos un Ganador! 🏆")
-                .setDescription(`Premio: **${premio}**\n\nFelicidades <@${winner.id}> por ganar el sorteo.\nGracias a todos por participar.`)
-                .setColor(0xFFD700)
-                .setThumbnail(winner.displayAvatarURL({ dynamic: true }))
-                .setFooter({ text: "Sorteo finalizado" })
-                .setTimestamp();
-
-            await interaction.channel.send({ content: `🎉 ¡El sorteo ha terminado!`, embeds: [embedGanador] });
-
-            const logChannel = guild.channels.cache.get(CANAL_LOGS);
-            if(logChannel) {
-                logChannel.send(`🏆 **${premio}** fue ganado por **${winner.tag}**`);
-            }
-}, duracion * 60000);
-        return;
-    } // Cierra if sorteo
-
-    // ===== AQUÍ TERMINAN LOS COMANDOS SLASH =====
-  } 
-
-  // ===== AQUÍ EMPIEZA LA LÓGICA DE MODALS Y BOTONES =====
-if (interaction.isModalSubmit() && interaction.customId === 'modal_reclutamiento') {
-        const datos = interaction.fields.getTextInputValue('f_datos');
-        const especialidad = interaction.fields.getTextInputValue('f_especialidad');
-        const experiencia = interaction.fields.getTextInputValue('f_exp');
-        const disponibilidad = interaction.fields.getTextInputValue('f_dispo');
-        const microfono = interaction.fields.getTextInputValue('f_mic');
-
-        const embedRespuestas = new EmbedBuilder()
-            .setTitle("⚔️ NUEVA SOLICITUD RECIBIDA ⚔️")
-            .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
-            .setColor(0x00FF00)
-            .setDescription(`El aspirante <@${interaction.user.id}> ha enviado su postulación oficial.`)
+        const canalVal = await client.channels.fetch(CANAL_VALORACIONES_ID);
+        const embedVal = new EmbedBuilder()
+            .setAuthor({ name: `• Valoración`, iconURL: interaction.guild.iconURL() })
+            .setDescription(`Ticket valorado por **${interaction.user.username}**`)
+            .setColor("#57F287")
             .addFields(
-                { name: '👤 Datos Personales', value: `\`\`\`${datos}\`\`\``, inline: false },
-                { name: '🎮 Perfil de Jugador', value: `\`\`\`${especialidad}\`\`\``, inline: false },
-                { name: '⏳ Tiempo en el Juego', value: `\`\`\`${experiencia}\`\`\``, inline: true },
-                { name: '🎤 Comunicación', value: `\`\`\`${microfono}\`\`\``, inline: true },
-                { name: '⏰ Disponibilidad', value: `\`\`\`${disponibilidad}\`\`\``, inline: false }
-            )
-            .setFooter({ text: "Evaluación de Actitud y Compromiso" })
-            .setTimestamp();
+                { name: "➡ Ticket", value: `# \`「🌟」${interaction.channel.name}\`\n(${interaction.channel.id})` },
+                { name: "➡ Panel", value: `Tickets` },
+                { name: "➡ Staff", value: `${staffObj.username} (${staffObj.id})` },
+                { name: "➡ Estrellas", value: "⭐".repeat(parseInt(estrellasNum)) },
+                { name: "➡ Comentarios", value: `${comentario}` }
+            );
 
-        await interaction.channel.send({ embeds: [embedRespuestas] });
-        return interaction.reply({ content: "✅ Tu solicitud ha sido enviada correctamente. El Staff la revisará pronto.", ephemeral: true });
+        await canalVal.send({ embeds: [embedVal] });
+        staffAtendiendo.delete(interaction.channel.id);
+        
+        await interaction.reply({ content: "✅ ¡Gracias! Tu valoración ha sido enviada con éxito. El ticket se cerrará en 5 segundos.", flags: [64] });
+        setTimeout(() => interaction.channel.delete().catch(() => {}), 5000); 
+        return;
     }
 
-    // 2. Manejo de Botones
-    if (!interaction.isButton()) return;
-
-    if (interaction.customId === "crear_ticket") {
-        const nombreCanal = `verificacion-${interaction.user.id}`;
-        const existingChannel = interaction.guild.channels.cache.find(c => c.name === nombreCanal);
-        if (existingChannel) return interaction.reply({ content: "❌ Ya tienes un ticket abierto.", ephemeral: true });
-
-        const canal = await interaction.guild.channels.create({
-            name: nombreCanal,
+    if (interaction.isStringSelectMenu() && interaction.customId === 'menu_tickets') {
+        await interaction.deferReply({ flags: [64] });
+        const ticketTipos = { "tk_soporte": "soporte-dudas", "tk_apelacion": "apelacion", "tk_reporte_staff": "reporte-staff", "tk_postulacion": "postulaciones" };
+        const tipo = ticketTipos[interaction.values[0]];
+        const tChannel = await interaction.guild.channels.create({
+            name: `${tipo}-${interaction.user.username}`,
             type: ChannelType.GuildText,
             parent: CATEGORIA_TICKETS,
-            topic: interaction.user.id, // <--- ESTO ES LO QUE FALTA (IMPORTANTE)
             permissionOverwrites: [
                 { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-                { id: STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-                { id: STAFF_TICKETS_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+                { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles] },
+                { id: ROL_STAFF_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+                { id: ROL_ADICIONAL_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
             ]
         });
-
-         const embedFormulario = new EmbedBuilder()
-            .setTitle("⚔️ RECLUTAMIENTO: COLMILLOS DEL ALBA ⚔️")
-            .setDescription(
-                "**Bienvenido aspirante.**\n\nBuscamos guerreros con disciplina, constancia y lealtad. Para iniciar tu proceso, haz clic en el botón **\"📝 Iniciar Formulario\"**.\n\n" +
-                "⚠️ **IMPORTANTE:**\n> * Las solicitudes poco serias serán rechazadas.\n> * Se evaluará actitud, nivel y compromiso."
-            )
-            .addFields(
-                { name: '📜 Requisito Mínimo', value: 'Disponer de Micrófono y Discord activo.', inline: true },
-                { name: '⏳ Evaluación', value: 'El Staff revisará tu perfil en breve.', inline: true }
-            )
-            .setColor(0x8B0000) 
-            .setImage(IMAGEN_FORMULARIO)
-            .setFooter({ text: "Forjamos lealtad y poder • Colmillos del Alba" })
-            .setTimestamp();
-  
-        const fila1 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId("abrir_formulario").setLabel("📝 Iniciar Formulario").setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId("reclamar_ticket").setLabel("🙋‍♂️ Reclamar Ticket").setStyle(ButtonStyle.Primary)
+        const eTk = new EmbedBuilder().setTitle(`🎫 TICKET: ${tipo.toUpperCase()}`).setDescription(`Hola ${interaction.user}, el Staff te atenderá pronto.`).setColor("#2ECC71");
+        const fTk = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId("reclamar_tk").setLabel("Reclamar").setEmoji("👤").setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId("cerrar_tk").setLabel("Cerrar").setEmoji("🔒").setStyle(ButtonStyle.Secondary)
         );
-
-        const fila2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId("aceptar_miembro").setLabel("Aceptar").setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId("rechazar_miembro").setLabel("Rechazar").setStyle(ButtonStyle.Danger),
-            new ButtonBuilder().setCustomId("cerrar_ticket").setLabel("Cerrar").setStyle(ButtonStyle.Secondary)
-        );
-
-        await canal.send({ content: `<@&${STAFF_TICKETS_ID}> <@&${STAFF_TICKETS_ID_2}> <@${interaction.user.id}>`, embeds: [embedFormulario], components: [fila1, fila2] });
-        await interaction.reply({ content: "✅ Ticket creado.", ephemeral: true });
+        await tChannel.send({ content: `<@&${ROL_STAFF_ID}> <@&${ROL_ADICIONAL_ID}>`, embeds: [eTk], components: [fTk] });
+        return interaction.editReply(`✅ Ticket creado: ${tChannel}`);
     }
 
-// 1. ABRIR EL FORMULARIO (MODAL)
-    if (interaction.customId === "abrir_formulario") {
-        const modal = new ModalBuilder()
-            .setCustomId('modal_reclutamiento')
-            .setTitle('SOLICITUD DE INGRESO');
+    if (!interaction.isButton()) return;
+    const { customId, member, channel, user } = interaction;
 
-        const campos = [
-            new TextInputBuilder().setCustomId('f_datos').setLabel("NICK / EDAD / GENERO / PAÍS").setPlaceholder("Ej: 1fsi / 16 / Masculino / Uruguay").setStyle(TextInputStyle.Short).setRequired(true),
-            new TextInputBuilder().setCustomId('f_especialidad').setLabel("ESPECIALIDAD Y NIVEL PVP").setPlaceholder("Ej: PvP y Constructor - Nivel: Alto").setStyle(TextInputStyle.Short).setRequired(true),
-            new TextInputBuilder().setCustomId('f_exp').setLabel("AÑOS DE EXPERIENCIA EN MC").setPlaceholder("¿Cuántos años llevas jugando?").setStyle(TextInputStyle.Short).setRequired(true),
-            new TextInputBuilder().setCustomId('f_dispo').setLabel("DISPONIBILIDAD SEMANAL").setPlaceholder("Días y horarios en los que sueles conectar").setStyle(TextInputStyle.Paragraph).setRequired(true),
-            new TextInputBuilder().setCustomId('f_mic').setLabel("¿TIENES MICRÓFONO Y DISCORD ACTIVO?").setPlaceholder("Sí/No - Explica brevemente").setStyle(TextInputStyle.Short).setRequired(true)
-        ];
+    // --- NUEVA LÓGICA DE APODOS PARA ROLES ---
+    if (ROLES_CLASE[customId]) {
+        await interaction.deferReply({ flags: [64] });
+        const rolData = ROLES_CLASE[customId];
+        const tieneRol = member.roles.cache.has(rolData.id);
 
-        modal.addComponents(campos.map(c => new ActionRowBuilder().addComponents(c)));
-        return await interaction.showModal(modal).catch(() => {});
-    }
+        try {
+            if (tieneRol) {
+                await member.roles.remove(rolData.id);
+                let nuevoNick = member.displayName;
+                Object.values(ROLES_CLASE).forEach(r => {
+                    nuevoNick = nuevoNick.replace(`${r.label} | `, "");
+                });
+                if (member.nickname !== nuevoNick) await member.setNickname(nuevoNick === user.username ? null : nuevoNick).catch(() => {});
+                return interaction.editReply(`❌ Rol **${rolData.label}** quitado y apodo restaurado.`);
+            } else {
+                for (const r of Object.values(ROLES_CLASE)) {
+                    if (member.roles.cache.has(r.id)) await member.roles.remove(r.id);
+                }
+                
+                await member.roles.add(rolData.id);
+                
+                let nombreBase = member.displayName;
+                Object.values(ROLES_CLASE).forEach(r => {
+                    nombreBase = nombreBase.replace(`${r.label} | `, "");
+                });
 
-    // 2. RECLAMAR TICKET
-    if (interaction.customId === "reclamar_ticket") {
-        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
-        return interaction.reply({ content: `✅ El ticket ha sido reclamado por el staff <@${interaction.user.id}>.` });
-    }
-
-    // 3. LÓGICA DE ACEPTAR Y RECHAZAR
-    if (interaction.customId === "aceptar_miembro" || interaction.customId === "rechazar_miembro") {
-        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
-
-        const targetMember = await interaction.guild.members.fetch(interaction.channel.topic).catch(() => null);
-
-        if (interaction.customId === "aceptar_miembro") {
-            if (targetMember) await targetMember.roles.add("1459687732417921227").catch(() => {});
-            await interaction.reply({ content: "✅ **ACEPTADO.** Rol asignado. Borrando en 15s..." });
-        } else {
-            const embedRechazo = new EmbedBuilder()
-                .setTitle("⚔️ ESTADO DE POSTULACIÓN: COLMILLOS DEL ALBA ⚔️")
-                .setColor(0xFF0000)
-                .setDescription(`Saludos aspirante.
-
-Lamentamos informarte que, tras revisar tu postulación, **tu solicitud de ingreso ha sido rechazada**.
-
-La decisión se basa en que no se cumplieron los requisitos establecidos por el clan, ya sea en el testeo de PvP, el estilo de construcción evaluado o el nivel técnico requerido en mecanismos. Asimismo, puede deberse al incumplimiento de normas básicas, como la edad mínima solicitada.
-
-Te invitamos a seguir mejorando y volver a intentarlo en futuras convocatorias.
-
-*Atentamente, administradores de ColmillosdelAlba*`)
-                .setFooter({ text: "Forjamos lealtad y poder." })
-                .setTimestamp();
-
-            if (targetMember) await targetMember.send({ embeds: [embedRechazo] }).catch(() => {});
-            await interaction.reply({ content: "❌ **RECHAZADO.** DM enviado. Borrando en 15s..." });
+                const apodoConRol = `${rolData.label} | ${nombreBase}`;
+                await member.setNickname(apodoConRol.substring(0, 32)).catch(() => {});
+                
+                return interaction.editReply(`✅ Ahora eres **${rolData.label}** y tu apodo ha sido actualizado.`);
+            }
+        } catch (e) {
+            console.error(e);
+            return interaction.editReply("❌ No pude actualizar tu apodo.");
         }
-        return setTimeout(() => interaction.channel.delete().catch(() => {}), 15000);
     }
 
-    // 4. CERRAR TICKET
-    if (interaction.customId === "cerrar_ticket") {
-        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
-        await interaction.channel.delete().catch(() => {});
+    if (customId === 'sug_si' || customId === 'sug_no') {
+        await interaction.deferUpdate();
+        const msgId = interaction.message.id;
+        const userId = interaction.user.id;
+        if (!votos.has(msgId)) votos.set(msgId, new Map());
+        const votosMsg = votos.get(msgId);
+        let vSi = parseInt(interaction.message.components[0].components[0].label.split(' ')[0]);
+        let vNo = parseInt(interaction.message.components[0].components[1].label.split(' ')[0]);
+        const votoAnterior = votosMsg.get(userId);
+        if (votoAnterior === customId) return;
+        if (votoAnterior === 'sug_si') vSi--;
+        if (votoAnterior === 'sug_no') vNo--;
+        if (customId === 'sug_si') vSi++;
+        else vNo++;
+        votosMsg.set(userId, customId);
+        const total = vSi + vNo;
+        const pSi = Math.round((vSi / (total || 1)) * 100);
+        const pNo = Math.round((vNo / (total || 1)) * 100);
+        const embed = interaction.message.embeds[0];
+        const nEmbed = EmbedBuilder.from(embed).setFields(
+            { name: '• Datos', value: `✅ **Votos a favor:** ${vSi}\n❗ **Votos en contra:** ${vNo}`, inline: false },
+            { name: '\u200B', value: embed.fields[1].value, inline: false }
+        );
+        const nFila = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('sug_si').setLabel(`${vSi} (${pSi}%)`).setEmoji('✅').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('sug_no').setLabel(`${vNo} (${pNo}%)`).setEmoji('❗').setStyle(ButtonStyle.Secondary)
+        );
+        return await interaction.message.edit({ embeds: [nEmbed], components: [nFila, interaction.message.components[1]] });
     }
-}); // Cierre del evento interactionCreate
 
-client.login(process.env.TOKEN);
+    if (ROLES_NOTIF[customId]) {
+        await interaction.deferReply({ flags: [64] });
+        const rId = ROLES_NOTIF[customId].id;
+        if (member.roles.cache.has(rId)) {
+            await member.roles.remove(rId);
+            return interaction.editReply(`❌ Rol de notificación **${ROLES_NOTIF[customId].label}** quitado.`);
+        } else {
+            await member.roles.add(rId);
+            return interaction.editReply(`✅ Rol de notificación **${ROLES_NOTIF[customId].label}** añadido.`);
+        }
+    }
+
+    if (customId === "reclamar_tk") {
+        if (!member.roles.cache.has(ROL_STAFF_ID) && !member.roles.cache.has(ROL_ADICIONAL_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
+        staffAtendiendo.set(channel.id, user); 
+        await interaction.update({ components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("reclamado").setLabel("Atendido por " + user.username).setStyle(ButtonStyle.Success).setDisabled(true), new ButtonBuilder().setCustomId("cerrar_tk").setLabel("Cerrar").setStyle(ButtonStyle.Secondary))]});
+        return channel.send({ embeds: [new EmbedBuilder().setDescription(`✅ El Staff **${user.tag}** se hará cargo.`).setColor("#57F287")] });
+    }
+
+    if (customId === "cerrar_tk") {
+        if (!member.roles.cache.has(ROL_STAFF_ID) && !member.roles.cache.has(ROL_ADICIONAL_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
+        const overwrite = channel.permissionOverwrites.cache.find(o => o.type === 1 && o.id !== ROL_STAFF_ID && o.id !== ROL_ADICIONAL_ID && o.id !== interaction.guild.id);
+        const ownerId = overwrite ? overwrite.id : null;
+        await interaction.reply("🔒 Cerrando ticket...");
+        if (ownerId) {
+            const btnVal = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`abrir_val_${ownerId}`).setLabel("Valorar atención (⭐)").setStyle(ButtonStyle.Primary));
+            await channel.send({ content: `<@${ownerId}>, por favor ayuda al staff dándoles una valoración:`, components: [btnVal] });
+        }
+        setTimeout(() => channel.delete().catch(() => {}), 60000); 
+    }
+
+    if (customId.startsWith("abrir_val_")) {
+        const ownerId = customId.split('_')[2];
+        if (interaction.user.id !== ownerId) return;
+        const menuVal = new StringSelectMenuBuilder().setCustomId('menu_val_estrellas').setPlaceholder('¿Cuántas estrellas nos das?').addOptions(
+            { label: '⭐⭐⭐⭐⭐ (5)', value: '5' },
+            { label: '⭐⭐⭐⭐ (4)', value: '4' },
+            { label: '⭐⭐⭐ (3)', value: '3' },
+            { label: '⭐⭐ (2)', value: '2' },
+            { label: '⭐ (1)', value: '1' }
+        );
+        return interaction.reply({ content: "Selecciona tu puntuación:", components: [new ActionRowBuilder().addComponents(menuVal)], flags: [64] });
+    }
+});
+
+client.login(TOKEN);
