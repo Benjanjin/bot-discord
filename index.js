@@ -86,11 +86,11 @@ client.once("ready", async () => {
   ];
  
   await client.application.commands.set(commands);
- // CONFIGURACIÓN DEL PERFIL (ESTADO)
+// CONFIGURACIÓN DEL PERFIL (ACTUALIZADA)
   client.user.setPresence({
     activities: [{ 
       name: 'ColmillosDelAlba Best Clan in Minecraft zzz', 
-      type: ActivityType.Custom 
+      type: ActivityType.Watching // Esto hará que diga "Viendo ColmillosDelAlba..."
     }],
     status: 'online',
   });
