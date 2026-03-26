@@ -832,9 +832,7 @@ if (interaction.isModalSubmit() && interaction.customId === 'modal_reclutamiento
             new TextInputBuilder().setCustomId('f_mic').setLabel("¿TIENES MICRÓFONO Y DISCORD ACTIVO?").setPlaceholder("Sí/No - Explica brevemente").setStyle(TextInputStyle.Short).setRequired(true)
         ];
 
-        // Añadimos cada campo en una fila distinta (OBLIGATORIO)
         modal.addComponents(campos.map(c => new ActionRowBuilder().addComponents(c)));
-        
         return await interaction.showModal(modal).catch(() => {});
     }
 
@@ -844,7 +842,7 @@ if (interaction.isModalSubmit() && interaction.customId === 'modal_reclutamiento
         return interaction.reply({ content: `✅ El ticket ha sido reclamado por el staff <@${interaction.user.id}>.` });
     }
 
-    // 3. ACEPTAR O RECHAZAR
+    // 3. LÓGICA DE ACEPTAR Y RECHAZAR
     if (interaction.customId === "aceptar_miembro" || interaction.customId === "rechazar_miembro") {
         if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
 
@@ -854,61 +852,24 @@ if (interaction.isModalSubmit() && interaction.customId === 'modal_reclutamiento
             if (targetMember) await targetMember.roles.add("1459687732417921227").catch(() => {});
             await interaction.reply({ content: "✅ **ACEPTADO.** Rol asignado. Borrando en 15s..." });
         } else {
-            if (targetMember) {
-                const embedRechazo = new EmbedBuilder()
-                    .setTitle("⚔️ COLMILLOS DEL ALBA ⚔️")
-                    .setColor(0xFF0000)
-                    .setDescription("Tu solicitud ha sido **rechazada**. Buscamos más disciplina y compromiso.\n\n*Atentamente, el Alto Mando.*");
-                await targetMember.send({ embeds: [embedRechazo] }).catch(() => {});
-            }
-            await interaction.reply({ content: "❌ **RECHAZADO.** DM enviado. Borrando en 15s..." });
-        }
-        setTimeout(() => interaction.channel.delete().catch(() => {}), 15000);
-    }
-
-        if (interaction.customId === "aceptar_miembro") {
-            // 1. Dar el rol automáticamente
-            if (targetMember) {
-                await targetMember.roles.add("1459687732417921227").catch(() => {});
-            }
-
-            await interaction.reply({ 
-                content: `✅ **ASPIRANTE ACEPTADO**\nEl rol ha sido asignado. El canal se eliminará en 15 segundos.` 
-            });
-
-            // 2. Borrar canal en 15 segundos
-            setTimeout(() => interaction.channel.delete().catch(() => {}), 15000);
-
-        } else {
-            // --- LÓGICA DE RECHAZO ---
             const embedRechazo = new EmbedBuilder()
                 .setTitle("⚔️ ESTADO DE POSTULACIÓN: COLMILLOS DEL ALBA ⚔️")
                 .setColor(0xFF0000)
-                .setDescription(
-                    `Saludos aspirante.\n\nLamentamos informarte que, tras revisar tu postulación, **tu solicitud de ingreso ha sido rechazada**.\n\n` +
-                    `Buscamos un nivel de compromiso, disciplina y perfil técnico que no hemos identificado en esta ocasión.\n\n*Atentamente, el Alto Mando de Colmillos del Alba.*`
-                )
+                .setDescription(`Saludos.\n\nLamentamos informarte que tu solicitud de ingreso ha sido **rechazada**.\n\nBuscamos un nivel de compromiso y disciplina que no hemos identificado.\n\n*Atentamente, el Alto Mando.*`)
                 .setFooter({ text: "Forjamos lealtad y poder." })
                 .setTimestamp();
 
-            // 1. Mandar mensaje privado (DM) profesional
-            if (targetMember) {
-                await targetMember.send({ embeds: [embedRechazo] }).catch(() => {});
-            }
-
-            await interaction.reply({ 
-                content: `❌ **ASPIRANTE RECHAZADO**\nSe ha enviado el comunicado oficial por privado. El canal se eliminará en 15 segundos.` 
-            });
-
-            // 2. Borrar canal en 15 segundos
-            setTimeout(() => interaction.channel.delete().catch(() => {}), 15000);
+            if (targetMember) await targetMember.send({ embeds: [embedRechazo] }).catch(() => {});
+            await interaction.reply({ content: "❌ **RECHAZADO.** DM enviado. Borrando en 15s..." });
         }
+        return setTimeout(() => interaction.channel.delete().catch(() => {}), 15000);
     }
+
+    // 4. CERRAR TICKET
     if (interaction.customId === "cerrar_ticket") {
         if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
         await interaction.channel.delete().catch(() => {});
     }
-});
+}); // Cierre del evento interactionCreate
 
 client.login(process.env.TOKEN);
-    
