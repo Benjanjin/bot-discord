@@ -86,15 +86,20 @@ client.once("ready", async () => {
   ];
  
   await client.application.commands.set(commands);
-// CONFIGURACIÓN DEL PERFIL (MODO TEXTO LIBRE)
-  client.user.setPresence({
-    activities: [{ 
-      name: "Custom Status", // Esto es interno de Discord
-      type: ActivityType.Custom, 
-      state: 'ColmillosDelAlba Best Clan in Minecraft zzz' // AQUÍ VA TU TEXTO
-    }],
-    status: 'online',
-  });
+// Cambiamos 'ready' por 'clientReady' y metemos la presencia dentro
+client.on('clientReady', (c) => {
+    console.log(`¡Bot encendido como ${c.user.tag}!`);
+
+    // CONFIGURACIÓN DEL PERFIL (Ahora dentro del evento Ready)
+    c.user.setPresence({
+        activities: [{ 
+            name: "Custom Status", 
+            type: ActivityType.Custom, 
+            state: 'ColmillosDelAlba Best Clan in Minecraft zzz' 
+        }],
+        status: 'online',
+    });
+});
   console.log("Comandos slash actualizados en Discord.");
  
   const canal = await client.channels.fetch(CANAL_INICIAL);
