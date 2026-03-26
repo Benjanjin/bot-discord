@@ -864,7 +864,15 @@ if (interaction.isModalSubmit() && interaction.customId === 'modal_reclutamiento
             const embedRechazo = new EmbedBuilder()
                 .setTitle("⚔️ ESTADO DE POSTULACIÓN: COLMILLOS DEL ALBA ⚔️")
                 .setColor(0xFF0000)
-                .setDescription(`Saludos.\n\nLamentamos informarte que tu solicitud de ingreso ha sido **rechazada**.\n\nBuscamos un nivel de compromiso y disciplina que no hemos identificado.\n\n*Atentamente, el Alto Mando.*`)
+                .setDescription(`Saludos aspirante.
+
+Lamentamos informarte que, tras revisar tu postulación, **tu solicitud de ingreso ha sido rechazada**.
+
+La decisión se basa en que no se cumplieron los requisitos establecidos por el clan, ya sea en el testeo de PvP, el estilo de construcción evaluado o el nivel técnico requerido en mecanismos. Asimismo, puede deberse al incumplimiento de normas básicas, como la edad mínima solicitada.
+
+Te invitamos a seguir mejorando y volver a intentarlo en futuras convocatorias.
+
+*Atentamente, administradores de ColmillosdelAlba*`)
                 .setFooter({ text: "Forjamos lealtad y poder." })
                 .setTimestamp();
 
