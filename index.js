@@ -818,41 +818,53 @@ if (interaction.isModalSubmit() && interaction.customId === 'modal_reclutamiento
         await interaction.reply({ content: "✅ Ticket creado.", ephemeral: true });
     }
 
-if (interaction.customId === "abrir_formulario") {
-        const modal = new ModalBuilder().setCustomId('modal_reclutamiento').setTitle('SOLICITUD DE INGRESO');
+// 1. ABRIR EL FORMULARIO (MODAL)
+    if (interaction.customId === "abrir_formulario") {
+        const modal = new ModalBuilder()
+            .setCustomId('modal_reclutamiento')
+            .setTitle('SOLICITUD DE INGRESO');
 
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('f_datos').setLabel("NICK / EDAD / GENERO / PAÍS").setPlaceholder("Ej: Nick: jose / edad: 20 / Genero: Masculino / Pais: España").setStyle(TextInputStyle.Short).setRequired(true)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('f_especialidad').setLabel("ESPECIALIDAD: CONSTRCUTOR, FARMER, TECNICO O PVP Y NIVEL PVP").setPlaceholder("Ej: PvP y Constructor - Nivel: Alto").setStyle(TextInputStyle.Short).setRequired(true)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('f_exp').setLabel("AÑOS DE EXPERIENCIA EN MC").setPlaceholder("¿Cuántos años llevas jugando?").setStyle(TextInputStyle.Short).setRequired(true)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('f_dispo').setLabel("DISPONIBILIDAD SEMANAL").setPlaceholder("Días y horarios en los que sueles conectar").setStyle(TextInputStyle.Paragraph).setRequired(true)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('f_mic').setLabel("¿TIENES MICRÓFONO Y DISCORD ACTIVO?").setPlaceholder("Sí/No - Explica brevemente").setStyle(TextInputStyle.Short).setRequired(true)
-            )
-        );
-        await interaction.showModal(modal);
+        const campos = [
+            new TextInputBuilder().setCustomId('f_datos').setLabel("NICK / EDAD / GENERO / PAÍS").setPlaceholder("Ej: 1fsi / 16 / Masculino / Uruguay").setStyle(TextInputStyle.Short).setRequired(true),
+            new TextInputBuilder().setCustomId('f_especialidad').setLabel("ESPECIALIDAD Y NIVEL PVP").setPlaceholder("Ej: PvP y Constructor - Nivel: Alto").setStyle(TextInputStyle.Short).setRequired(true),
+            new TextInputBuilder().setCustomId('f_exp').setLabel("AÑOS DE EXPERIENCIA EN MC").setPlaceholder("¿Cuántos años llevas jugando?").setStyle(TextInputStyle.Short).setRequired(true),
+            new TextInputBuilder().setCustomId('f_dispo').setLabel("DISPONIBILIDAD SEMANAL").setPlaceholder("Días y horarios en los que sueles conectar").setStyle(TextInputStyle.Paragraph).setRequired(true),
+            new TextInputBuilder().setCustomId('f_mic').setLabel("¿TIENES MICRÓFONO Y DISCORD ACTIVO?").setPlaceholder("Sí/No - Explica brevemente").setStyle(TextInputStyle.Short).setRequired(true)
+        ];
+
+        // Añadimos cada campo en una fila distinta (OBLIGATORIO)
+        modal.addComponents(campos.map(c => new ActionRowBuilder().addComponents(c)));
+        
+        return await interaction.showModal(modal).catch(() => {});
     }
 
- if (interaction.customId === "reclamar_ticket") {
+    // 2. RECLAMAR TICKET
+    if (interaction.customId === "reclamar_ticket") {
         if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
         return interaction.reply({ content: `✅ El ticket ha sido reclamado por el staff <@${interaction.user.id}>.` });
     }
-// --- LÓGICA DE ACEPTAR Y RECHAZAR (ACTUALIZADA) ---
-    if (interaction.customId === "aceptar_miembro" || interaction.customId === "rechazar_miembro") {
-        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) {
-            return interaction.reply({ content: "❌ No tienes permiso para usar estos botones.", ephemeral: true });
-        }
 
-        // Buscamos al dueño del ticket (por el ID guardado en el topic del canal)
+    // 3. ACEPTAR O RECHAZAR
+    if (interaction.customId === "aceptar_miembro" || interaction.customId === "rechazar_miembro") {
+        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && !interaction.member.roles.cache.has(STAFF_TICKETS_ID)) return interaction.reply({ content: "❌ Sin permisos.", ephemeral: true });
+
         const targetMember = await interaction.guild.members.fetch(interaction.channel.topic).catch(() => null);
+
+        if (interaction.customId === "aceptar_miembro") {
+            if (targetMember) await targetMember.roles.add("1459687732417921227").catch(() => {});
+            await interaction.reply({ content: "✅ **ACEPTADO.** Rol asignado. Borrando en 15s..." });
+        } else {
+            if (targetMember) {
+                const embedRechazo = new EmbedBuilder()
+                    .setTitle("⚔️ COLMILLOS DEL ALBA ⚔️")
+                    .setColor(0xFF0000)
+                    .setDescription("Tu solicitud ha sido **rechazada**. Buscamos más disciplina y compromiso.\n\n*Atentamente, el Alto Mando.*");
+                await targetMember.send({ embeds: [embedRechazo] }).catch(() => {});
+            }
+            await interaction.reply({ content: "❌ **RECHAZADO.** DM enviado. Borrando en 15s..." });
+        }
+        setTimeout(() => interaction.channel.delete().catch(() => {}), 15000);
+    }
 
         if (interaction.customId === "aceptar_miembro") {
             // 1. Dar el rol automáticamente
