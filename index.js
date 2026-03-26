@@ -86,13 +86,13 @@ client.once("ready", async () => {
   ];
  
   await client.application.commands.set(commands);
-// CONFIGURACIÓN DEL PERFIL (ACTUALIZADA)
+// CONFIGURACIÓN DEL PERFIL (ESTADO PROFESIONAL)
   client.user.setPresence({
     activities: [{ 
       name: 'ColmillosDelAlba Best Clan in Minecraft zzz', 
-      type: ActivityType.Watching // Esto hará que diga "Viendo ColmillosDelAlba..."
+      type: ActivityType.Playing // Esto hará que parezca un juego
     }],
-    status: 'online',
+    status: 'online', // El punto verde de conectado
   });
   console.log("Comandos slash actualizados en Discord.");
  
