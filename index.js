@@ -50,7 +50,12 @@ const ROLES_CLASE = {
     class_pvp: { id: "1464335696390263069", label: "PVP", emoji: "⚔️" },
     class_builder: { id: "1464335639561506878", label: "BUILDER", emoji: "⚒️" },
     class_redstone: { id: "1464335746944209161", label: "TECNICO", emoji: "⚙️" },
-    class_estratega: { id: "1464335746856128737", label: "CASUAL", emoji: "🏛️" }
+    class_estratega: { id: "MENU_CASUAL", label: "CASUAL", emoji: "🏛️" }
+};
+
+const SUB_ROLES_CASUAL = {
+    casual_farmer: { id: "1464335746856128737", label: "Casual: Farmer", emoji: "🌾" },
+    casual_herrero: { id: "1479953030605443204", label: "Casual: Herrero", emoji: "🔨" }
 };
 
 const ROLES_NOTIF = {
@@ -64,9 +69,9 @@ const client = new Client({
         GatewayIntentBits.GuildMembers, 
         GatewayIntentBits.GuildMessages, 
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.DirectMessages // Añadido para detectar mensajes privados
+        GatewayIntentBits.DirectMessages 
     ],
-    partials: [Partials.Channel, Partials.Message] // Necesario para recibir DMs
+    partials: [Partials.Channel, Partials.Message] 
 });
 
 client.once(Events.ClientReady, async () => {
@@ -354,41 +359,52 @@ client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isButton()) return;
     const { customId, member, channel, user } = interaction;
 
-    // --- NUEVA LÓGICA DE APODOS PARA ROLES ---
-    if (ROLES_CLASE[customId]) {
+    // --- LÓGICA DE ROLES Y SUB-MENÚ CASUAL ---
+    if (ROLES_CLASE[customId] || SUB_ROLES_CASUAL[customId]) {
         await interaction.deferReply({ flags: [64] });
-        const rolData = ROLES_CLASE[customId];
+
+        if (customId === "MENU_CASUAL") {
+            const filaSubCasual = new ActionRowBuilder().addComponents(
+                Object.entries(SUB_ROLES_CASUAL).map(([id, data]) => 
+                    new ButtonBuilder().setCustomId(id).setLabel(data.label).setEmoji(data.emoji).setStyle(ButtonStyle.Success)
+                )
+            );
+            return interaction.editReply({ content: "✨ Has elegido el camino **Casual**. Selecciona tu especialidad:", components: [filaSubCasual] });
+        }
+
+        const rolData = ROLES_CLASE[customId] || SUB_ROLES_CASUAL[customId];
         const tieneRol = member.roles.cache.has(rolData.id);
 
         try {
             if (tieneRol) {
                 await member.roles.remove(rolData.id);
                 let nuevoNick = member.displayName;
-                Object.values(ROLES_CLASE).forEach(r => {
+                [...Object.values(ROLES_CLASE), ...Object.values(SUB_ROLES_CASUAL)].forEach(r => {
                     nuevoNick = nuevoNick.replace(`${r.label} | `, "");
                 });
                 if (member.nickname !== nuevoNick) await member.setNickname(nuevoNick === user.username ? null : nuevoNick).catch(() => {});
-                return interaction.editReply(`❌ Rol **${rolData.label}** quitado y apodo restaurado.`);
+                return interaction.editReply(`❌ Rol **${rolData.label}** quitado.`);
             } else {
-                for (const r of Object.values(ROLES_CLASE)) {
-                    if (member.roles.cache.has(r.id)) await member.roles.remove(r.id);
+                const todosLosRoles = [...Object.values(ROLES_CLASE), ...Object.values(SUB_ROLES_CASUAL)].map(r => r.id);
+                for (const id of todosLosRoles) {
+                    if (member.roles.cache.has(id)) await member.roles.remove(id);
                 }
                 
                 await member.roles.add(rolData.id);
                 
                 let nombreBase = member.displayName;
-                Object.values(ROLES_CLASE).forEach(r => {
+                [...Object.values(ROLES_CLASE), ...Object.values(SUB_ROLES_CASUAL)].forEach(r => {
                     nombreBase = nombreBase.replace(`${r.label} | `, "");
                 });
 
                 const apodoConRol = `${rolData.label} | ${nombreBase}`;
                 await member.setNickname(apodoConRol.substring(0, 32)).catch(() => {});
                 
-                return interaction.editReply(`✅ Ahora eres **${rolData.label}** y tu apodo ha sido actualizado.`);
+                return interaction.editReply(`✅ Ahora eres **${rolData.label}**.`);
             }
         } catch (e) {
             console.error(e);
-            return interaction.editReply("❌ No pude actualizar tu apodo.");
+            return interaction.editReply("❌ Error al gestionar roles.");
         }
     }
 
