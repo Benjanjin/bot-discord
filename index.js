@@ -360,17 +360,17 @@ client.on(Events.InteractionCreate, async interaction => {
     const { customId, member, channel, user } = interaction;
 
     // --- LÓGICA DE ROLES Y SUB-MENÚ CASUAL ---
+    if (customId === "class_estratega") {
+        const filaSubCasual = new ActionRowBuilder().addComponents(
+            Object.entries(SUB_ROLES_CASUAL).map(([id, data]) => 
+                new ButtonBuilder().setCustomId(id).setLabel(data.label).setEmoji(data.emoji).setStyle(ButtonStyle.Success)
+            )
+        );
+        return interaction.reply({ content: "✨ Has elegido el camino **Casual**. Selecciona tu especialidad:", components: [filaSubCasual], flags: [64] });
+    }
+
     if (ROLES_CLASE[customId] || SUB_ROLES_CASUAL[customId]) {
         await interaction.deferReply({ flags: [64] });
-
-        if (customId === "MENU_CASUAL") {
-            const filaSubCasual = new ActionRowBuilder().addComponents(
-                Object.entries(SUB_ROLES_CASUAL).map(([id, data]) => 
-                    new ButtonBuilder().setCustomId(id).setLabel(data.label).setEmoji(data.emoji).setStyle(ButtonStyle.Success)
-                )
-            );
-            return interaction.editReply({ content: "✨ Has elegido el camino **Casual**. Selecciona tu especialidad:", components: [filaSubCasual] });
-        }
 
         const rolData = ROLES_CLASE[customId] || SUB_ROLES_CASUAL[customId];
         const tieneRol = member.roles.cache.has(rolData.id);
@@ -380,21 +380,24 @@ client.on(Events.InteractionCreate, async interaction => {
                 await member.roles.remove(rolData.id);
                 let nuevoNick = member.displayName;
                 [...Object.values(ROLES_CLASE), ...Object.values(SUB_ROLES_CASUAL)].forEach(r => {
-                    nuevoNick = nuevoNick.replace(`${r.label} | `, "");
+                    if(r.id !== "MENU_CASUAL") nuevoNick = nuevoNick.replace(`${r.label} | `, "");
                 });
                 if (member.nickname !== nuevoNick) await member.setNickname(nuevoNick === user.username ? null : nuevoNick).catch(() => {});
                 return interaction.editReply(`❌ Rol **${rolData.label}** quitado.`);
             } else {
-                const todosLosRoles = [...Object.values(ROLES_CLASE), ...Object.values(SUB_ROLES_CASUAL)].map(r => r.id);
+                const todosLosRoles = [...Object.values(ROLES_CLASE), ...Object.values(SUB_ROLES_CASUAL)]
+                    .filter(r => r.id !== "MENU_CASUAL")
+                    .map(r => r.id);
+
                 for (const id of todosLosRoles) {
-                    if (member.roles.cache.has(id)) await member.roles.remove(id);
+                    if (member.roles.cache.has(id)) await member.roles.remove(id).catch(() => {});
                 }
                 
                 await member.roles.add(rolData.id);
                 
                 let nombreBase = member.displayName;
                 [...Object.values(ROLES_CLASE), ...Object.values(SUB_ROLES_CASUAL)].forEach(r => {
-                    nombreBase = nombreBase.replace(`${r.label} | `, "");
+                    if(r.id !== "MENU_CASUAL") nombreBase = nombreBase.replace(`${r.label} | `, "");
                 });
 
                 const apodoConRol = `${rolData.label} | ${nombreBase}`;
