@@ -828,7 +828,7 @@ if (interaction.isModalSubmit() && interaction.customId === 'modal_reclutamiento
             new ButtonBuilder().setCustomId("cerrar_ticket").setLabel("Cerrar").setStyle(ButtonStyle.Secondary)
         );
 
-        await canal.send({ content: `<@&${STAFF_TICKETS_ID}> <@${interaction.user.id}>`, embeds: [embedFormulario], components: [fila1, fila2] });
+        await canal.send({ content: `<@&${STAFF_TICKETS_ID}> <@&${STAFF_TICKETS_ID_2}> <@${interaction.user.id}>`, embeds: [embedFormulario], components: [fila1, fila2] });
         await interaction.reply({ content: "✅ Ticket creado.", ephemeral: true });
     }
 
