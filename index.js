@@ -45,6 +45,11 @@ const CANAL_TRANSCRIPTS_ID = "1485804232870461520"; // ID Canal Transcripts
 const CATEGORIA_TICKETS = "1483589642346303638";
 const ROL_STAFF_ID = "1478799916410077295";
 const ROL_ADICIONAL_ID = "1480750004309332040"; // Rol adicional tickets
+// --- CONFIGURACIÓN DE LA API PARA LA WEB ---
+const express = require('express');
+const cors = require('cors');
+const app = express();
+app.use(cors()); // Permite que la web de GitHub acceda a los datos
 
 const ROLES_CLASE = {
     class_pvp: { id: "1464335696390263069", label: "PVP", emoji: "⚔️" },
@@ -486,4 +491,30 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 });
 
+// --- ENDPOINT PARA LA WEB DEL CLAN ---
+app.get('/miembros', async (req, res) => {
+    try {
+        const guild = await client.guilds.fetch("1459675438543540399"); // ID de tu servidor
+        const members = await guild.members.fetch();
+        
+        // Mapeamos los datos necesarios para las tarjetas de la web
+        const data = members.map(m => ({
+            username: m.user.username,
+            avatar: m.user.displayAvatarURL({ extension: 'png', size: 256 }),
+            // Filtramos solo los nombres de los roles que mencionamos en la web
+            roles: m.roles.cache.map(r => r.name.toUpperCase()) 
+        }));
+
+        res.json(data);
+    } catch (error) {
+        console.error("Error al obtener miembros:", error);
+        res.status(500).json({ error: "No se pudieron obtener los miembros" });
+    }
+});
+
+// Railway usará el puerto que él decida, o el 3000 por defecto
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`🌐 API Web escuchando en el puerto ${PORT}`);
+});
 client.login(TOKEN);
