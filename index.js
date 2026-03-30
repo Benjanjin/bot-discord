@@ -19,18 +19,25 @@ const fs = require('fs');
 const pathEco = './economia.json';
 let db = {};
 if (fs.existsSync(pathEco)) {
-    db = JSON.parse(fs.readFileSync(pathEco, 'utf-8'));
+    try {
+        db = JSON.parse(fs.readFileSync(pathEco, 'utf-8'));
+    } catch (e) {
+        console.error("Error al leer la DB, creando una nueva...");
+        db = {};
+    }
 } else {
     fs.writeFileSync(pathEco, JSON.stringify({}));
 }
 
 function guardarDB() {
-    fs.writeFileSync(pathEco, JSON.stringify(db, null, 2));
+    // Guardado asíncrono para evitar lag en el bot
+    fs.writeFile(pathEco, JSON.stringify(db, null, 2), (err) => {
+        if (err) console.error("Error al guardar DB:", err);
+    });
 }
 
 function asegurarUsuario(userId) {
     if (!db[userId]) {
-        // Estructura base completa para evitar errores en la web y el bot
         db[userId] = { balance: 0, pesca: 0, minado: 0, daily: 0, aportado: 0 };
         guardarDB();
     }
@@ -97,7 +104,7 @@ client.once(Events.ClientReady, async () => {
         new SlashCommandBuilder().setName('coinflip').setDescription('Apuesta a cara o cruz').addIntegerOption(o => o.setName('apuesta').setDescription('Cantidad').setRequired(true)),
         new SlashCommandBuilder().setName('aportar').setDescription('Añade fondos a un usuario (Solo Staff)')
             .addUserOption(o => o.setName('usuario').setDescription('Usuario a recibir').setRequired(true))
-            .addIntegerOption(o => o.setName('cantidad').setDescription('Cantidad a aportar').setRequired(true))
+            .addIntegerOption(o => o.setName('cantidad').setDescription('Cantidad a aportar (Máx 10M)').setRequired(true))
     ].map(cmd => cmd.toJSON());
     
     const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -192,8 +199,14 @@ client.on(Events.InteractionCreate, async interaction => {
 
             const receptor = options.getUser('usuario');
             const cantidad = options.getInteger('cantidad');
+            const LIMITE_APORTE = 10000000; // 10 MILLONES
 
             if (cantidad <= 0) return interaction.reply({ content: "❌ Cantidad inválida.", flags: [64] });
+            
+            // PROTECCIÓN CONTRA BUGS DE NÚMEROS GIGANTES
+            if (cantidad > LIMITE_APORTE) {
+                return interaction.reply({ content: `⚠️ El límite máximo por aporte es de **$${LIMITE_APORTE.toLocaleString()}**.`, flags: [64] });
+            }
 
             asegurarUsuario(receptor.id);
             db[receptor.id].balance += cantidad;
@@ -257,7 +270,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
             ctx.font = '60px "Bungee"'; 
             ctx.fillStyle = '#F1C40F';
-            ctx.fillText(`$${db[user.id].balance.toLocaleString()}`, 50, 200);
+            ctx.fillText(`$${(db[user.id].balance || 0).toLocaleString()}`, 50, 200);
 
             ctx.font = '80px sans-serif'; 
             ctx.fillText('💰', 530, 170);
@@ -518,24 +531,30 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 });
 
-// --- API PARA LA WEB (CON DATOS DE APORTES) ---
+// --- API PARA LA WEB (PROTEGIDA Y OPTIMIZADA) ---
 app.get('/miembros', async (req, res) => {
     try {
         const guild = await client.guilds.fetch("1459675438543540399");
         const members = await guild.members.fetch();
         const data = members.map(m => {
             const eco = db[m.user.id] || { balance: 0, aportado: 0 };
+            
+            // VALIDACIÓN DE NÚMEROS GIGANTES PARA LA WEB
+            let aportesValidados = Number(eco.aportado) || 0;
+            if (aportesValidados > 10000000) aportesValidados = 10000000;
+
             return {
                 username: m.user.username,
                 avatar: m.user.displayAvatarURL({ extension: 'png', size: 256 }),
                 roles: m.roles.cache.map(r => r.name.toUpperCase()),
-                dinero: eco.balance, 
-                aportes: eco.aportado || 0 // Esto es lo que usas en el top staff de la web
+                dinero: Number(eco.balance) || 0, 
+                aportes: aportesValidados
             };
         });
         res.json(data);
     } catch (error) {
-        res.status(500).json({ error: "No se pudieron obtener los miembros" });
+        // Fallback: enviamos un array vacío para que la web no se rompa
+        res.json([]);
     }
 });
 
