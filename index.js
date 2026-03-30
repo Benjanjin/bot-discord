@@ -8,10 +8,10 @@ const cooldowns = new Map(); // Para los delays
 
 const {  
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, 
-    ButtonBuilder, ButtonStyle, Events, ChannelType, PermissionsBitField,
-    ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes,
-    StringSelectMenuBuilder, StringSelectMenuOptionBuilder, SlashCommandBuilder,
-    AttachmentBuilder, Partials // Añadido Partials
+    ButtonBuilder, ButtonStyle, Events, ChannelType, PermissionsBitField, 
+    ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes, 
+    StringSelectMenuBuilder, StringSelectMenuOptionBuilder, SlashCommandBuilder, 
+    AttachmentBuilder, Partials 
 } = require('discord.js'); 
 const fs = require('fs'); 
 
@@ -41,15 +41,16 @@ const CANAL_ROLES_ID = "1464335122005491745";
 const CANAL_TICKETS_ID = "1483516417583354108";
 const CANAL_SUGERENCIAS_ID = "1477005989096984646"; 
 const CANAL_VALORACIONES_ID = "1485125020593426585"; 
-const CANAL_TRANSCRIPTS_ID = "1485804232870461520"; // ID Canal Transcripts
+const CANAL_TRANSCRIPTS_ID = "1485804232870461520"; 
 const CATEGORIA_TICKETS = "1483589642346303638";
 const ROL_STAFF_ID = "1478799916410077295";
-const ROL_ADICIONAL_ID = "1480750004309332040"; // Rol adicional tickets
+const ROL_ADICIONAL_ID = "1480750004309332040";
+
 // --- CONFIGURACIÓN DE LA API PARA LA WEB ---
 const express = require('express');
 const cors = require('cors');
 const app = express();
-app.use(cors()); // Permite que la web de GitHub acceda a los datos
+app.use(cors());
 
 const ROLES_CLASE = {
     class_pvp: { id: "1464335696390263069", label: "PVP", emoji: "⚔️" },
@@ -308,7 +309,6 @@ client.on(Events.InteractionCreate, async interaction => {
         const comentario = interaction.fields.getTextInputValue('input_val');
         const staffObj = staffAtendiendo.get(interaction.channel.id) || { username: "No reclamado", id: "N/A" };
         
-        // --- TRANSCRIPT TXT ---
         const msgs = await interaction.channel.messages.fetch({ limit: 100 });
         let content = `Transcript de ${interaction.channel.name}\nAtendido por: ${staffObj.username}\n\n`;
         msgs.reverse().forEach(m => { content += `[${m.createdAt.toLocaleString()}] ${m.author.tag}: ${m.content}\n`; });
@@ -364,7 +364,6 @@ client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isButton()) return;
     const { customId, member, channel, user } = interaction;
 
-    // --- LÓGICA DE ROLES Y SUB-MENÚ CASUAL ---
     if (customId === "class_estratega") {
         const filaSubCasual = new ActionRowBuilder().addComponents(
             Object.entries(SUB_ROLES_CASUAL).map(([id, data]) => 
@@ -376,7 +375,6 @@ client.on(Events.InteractionCreate, async interaction => {
 
     if (ROLES_CLASE[customId] || SUB_ROLES_CASUAL[customId]) {
         await interaction.deferReply({ flags: [64] });
-
         const rolData = ROLES_CLASE[customId] || SUB_ROLES_CASUAL[customId];
         const tieneRol = member.roles.cache.has(rolData.id);
 
@@ -399,7 +397,6 @@ client.on(Events.InteractionCreate, async interaction => {
                 }
                 
                 await member.roles.add(rolData.id);
-                
                 let nombreBase = member.displayName;
                 [...Object.values(ROLES_CLASE), ...Object.values(SUB_ROLES_CASUAL)].forEach(r => {
                     if(r.id !== "MENU_CASUAL") nombreBase = nombreBase.replace(`${r.label} | `, "");
@@ -407,7 +404,6 @@ client.on(Events.InteractionCreate, async interaction => {
 
                 const apodoConRol = `${rolData.label} | ${nombreBase}`;
                 await member.setNickname(apodoConRol.substring(0, 32)).catch(() => {});
-                
                 return interaction.editReply(`✅ Ahora eres **${rolData.label}**.`);
             }
         } catch (e) {
@@ -494,27 +490,19 @@ client.on(Events.InteractionCreate, async interaction => {
 // --- ENDPOINT PARA LA WEB DEL CLAN ---
 app.get('/miembros', async (req, res) => {
     try {
-        const guild = await client.guilds.fetch("1459675438543540399"); // ID de tu servidor
+        const guild = await client.guilds.fetch("1459675438543540399");
         const members = await guild.members.fetch();
-        
-        // Mapeamos los datos necesarios para las tarjetas de la web
         const data = members.map(m => ({
             username: m.user.username,
             avatar: m.user.displayAvatarURL({ extension: 'png', size: 256 }),
-            // Filtramos solo los nombres de los roles que mencionamos en la web
             roles: m.roles.cache.map(r => r.name.toUpperCase()) 
         }));
-
         res.json(data);
     } catch (error) {
-        console.error("Error al obtener miembros:", error);
         res.status(500).json({ error: "No se pudieron obtener los miembros" });
     }
 });
 
-// Railway usará el puerto que él decida, o el 3000 por defecto
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🌐 API Web escuchando en el puerto ${PORT}`);
-});
+app.listen(PORT, () => { console.log(`🌐 API Web escuchando en el puerto ${PORT}`); });
 client.login(TOKEN);
