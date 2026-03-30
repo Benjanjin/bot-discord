@@ -336,3 +336,5 @@ client.on(Events.InteractionCreate, async interaction => {
         setTimeout(() => interaction.channel.delete().catch(() => {}), 5000); 
     }
 });
+
+client.login(TOKEN);
