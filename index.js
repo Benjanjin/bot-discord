@@ -34,6 +34,17 @@ function asegurarUsuario(userId) {
         guardarDB();
     }
 }
+// --- BASE DE DATOS DE DONACIONES (PARA LA WEB) ---
+const pathDonas = './donaciones.json';
+let donasData = [];
+if (fs.existsSync(pathDonas)) {
+    donasData = JSON.parse(fs.readFileSync(pathDonas, 'utf-8'));
+} else {
+    fs.writeFileSync(pathDonas, JSON.stringify([]));
+}
+function guardarDonas() {
+    fs.writeFileSync(pathDonas, JSON.stringify(donasData, null, 2));
+}
 
 const TOKEN = process.env.TOKEN;
 
@@ -92,7 +103,8 @@ client.once(Events.ClientReady, async () => {
         new SlashCommandBuilder().setName('trabajar').setDescription('Realiza un trabajo aleatorio'),
         new SlashCommandBuilder().setName('top').setDescription('Mira el ranking de los más ricos'),
         new SlashCommandBuilder().setName('daily').setDescription('Reclama tu recompensa diaria'),
-        new SlashCommandBuilder().setName('coinflip').setDescription('Apuesta a cara o cruz').addIntegerOption(o => o.setName('apuesta').setDescription('Cantidad').setRequired(true))
+        new SlashCommandBuilder().setName('coinflip').setDescription('Apuesta a cara o cruz').addIntegerOption(o => o.setName('apuesta').setDescription('Cantidad').setRequired(true)),
+        new SlashCommandBuilder().setName('aportacion').setDescription('Registrar donación para la web').addUserOption(o => o.setName('usuario').setDescription('Quién donó').setRequired(true)).addIntegerOption(o => o.setName('monto').setDescription('Cantidad').setRequired(true))
     ].map(cmd => cmd.toJSON());
 
     const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -263,6 +275,22 @@ client.on(Events.InteractionCreate, async interaction => {
             db[user.id].balance += win ? bet : -bet;
             guardarDB();
             return interaction.reply(win ? `🪙 Ganaste **$${bet}**!` : `🪙 Perdiste **$${bet}**.`);
+        }
+        if (commandName === 'aportacion') {
+            if (!interaction.member.roles.cache.has(ROL_STAFF_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
+            const target = options.getUser('usuario');
+            const monto = options.getInteger('monto');
+            let userDona = donasData.find(d => d.id === target.id);
+            if (userDona) {
+                userDona.cantidad += monto;
+                userDona.username = target.username;
+                userDona.avatar = target.displayAvatarURL();
+            } else {
+                donasData.push({ id: target.id, username: target.username, avatar: target.displayAvatarURL(), cantidad: monto });
+            }
+            donasData.sort((a, b) => b.cantidad - a.cantidad);
+            guardarDonas();
+            return interaction.reply(`✅ Registrados **$${monto.toLocaleString()}** para **${target.username}**.`);
         }
     }
 
@@ -510,6 +538,10 @@ app.get('/miembros', async (req, res) => {
         console.error("Error al obtener miembros:", error);
         res.status(500).json({ error: "No se pudieron obtener los miembros" });
     }
+});
+// NUEVO: Ranking de donaciones para la web
+app.get('/donaciones', (req, res) => {
+    res.json(donasData.slice(0, 10)); // Envía los mejores 10
 });
 
 // Railway usará el puerto que él decida, o el 3000 por defecto
