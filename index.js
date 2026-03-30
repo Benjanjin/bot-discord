@@ -104,7 +104,7 @@ client.once(Events.ClientReady, async () => {
         new SlashCommandBuilder().setName('top').setDescription('Mira el ranking de los más ricos'),
         new SlashCommandBuilder().setName('daily').setDescription('Reclama tu recompensa diaria'),
         new SlashCommandBuilder().setName('coinflip').setDescription('Apuesta a cara o cruz').addIntegerOption(o => o.setName('apuesta').setDescription('Cantidad').setRequired(true)),
-        new SlashCommandBuilder().setName('aportacion').setDescription('Registrar donación para la web').addUserOption(o => o.setName('usuario').setDescription('Quién donó').setRequired(true)).addIntegerOption(o => o.setName('monto').setDescription('Cantidad').setRequired(true))
+        new SlashCommandBuilder().setName('aportacion').setDescription('Registrar donación para la web').addUserOption(o => o.setName('usuario').setDescription('Quién donó').setRequired(true)).addIntegerOption(o => o.setName('monto').setDescription('Cantidad').setRequired(true)).setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
     ].map(cmd => cmd.toJSON());
 
     const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -277,6 +277,10 @@ client.on(Events.InteractionCreate, async interaction => {
             return interaction.reply(win ? `🪙 Ganaste **$${bet}**!` : `🪙 Perdiste **$${bet}**.`);
         }
         if (commandName === 'aportacion') {
+            // Bloqueo: Si NO tiene el rol de Staff, el bot lo saca
+            if (!interaction.member.roles.cache.has(ROL_STAFF_ID)) {
+                return interaction.reply({ content: "❌ No tienes permiso. Solo el Staff puede registrar aportaciones.", flags: [64] });
+            }
             if (!interaction.member.roles.cache.has(ROL_STAFF_ID)) return interaction.reply({ content: "❌ Solo Staff.", flags: [64] });
             const target = options.getUser('usuario');
             const monto = options.getInteger('monto');
