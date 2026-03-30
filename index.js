@@ -30,7 +30,7 @@ function guardarDB() {
 
 function asegurarUsuario(userId) {
     if (!db[userId]) {
-        // ACTUALIZADO: Añadido "aportado" a la estructura base
+        // Estructura base completa para evitar errores en la web y el bot
         db[userId] = { balance: 0, pesca: 0, minado: 0, daily: 0, aportado: 0 };
         guardarDB();
     }
@@ -95,7 +95,6 @@ client.once(Events.ClientReady, async () => {
         new SlashCommandBuilder().setName('top').setDescription('Mira el ranking de los más ricos'),
         new SlashCommandBuilder().setName('daily').setDescription('Reclama tu recompensa diaria'),
         new SlashCommandBuilder().setName('coinflip').setDescription('Apuesta a cara o cruz').addIntegerOption(o => o.setName('apuesta').setDescription('Cantidad').setRequired(true)),
-        // --- NUEVO COMANDO APORTAR REGISTRADO ---
         new SlashCommandBuilder().setName('aportar').setDescription('Añade fondos a un usuario (Solo Staff)')
             .addUserOption(o => o.setName('usuario').setDescription('Usuario a recibir').setRequired(true))
             .addIntegerOption(o => o.setName('cantidad').setDescription('Cantidad a aportar').setRequired(true))
@@ -186,7 +185,6 @@ client.on(Events.InteractionCreate, async interaction => {
         const { commandName, user, options, member } = interaction;
         asegurarUsuario(user.id);
 
-        // --- LÓGICA DEL COMANDO APORTAR (SÓLO STAFF) ---
         if (commandName === 'aportar') {
             if (!member.roles.cache.has(ROL_STAFF_ID) && !member.roles.cache.has(ROL_ADICIONAL_ID)) {
                 return interaction.reply({ content: "❌ No tienes permiso para usar este comando.", flags: [64] });
@@ -200,7 +198,7 @@ client.on(Events.InteractionCreate, async interaction => {
             asegurarUsuario(receptor.id);
             db[receptor.id].balance += cantidad;
             
-            // Registramos el aporte en la cuenta del Staff para la Web
+            // INDEPENDIENTE: Solo se suma al 'aportado' del staff para la WEB
             db[user.id].aportado = (db[user.id].aportado || 0) + cantidad;
             
             guardarDB();
@@ -520,7 +518,7 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 });
 
-// --- ENDPOINT ACTUALIZADO PARA LA WEB DEL CLAN ---
+// --- API PARA LA WEB (CON DATOS DE APORTES) ---
 app.get('/miembros', async (req, res) => {
     try {
         const guild = await client.guilds.fetch("1459675438543540399");
@@ -531,8 +529,8 @@ app.get('/miembros', async (req, res) => {
                 username: m.user.username,
                 avatar: m.user.displayAvatarURL({ extension: 'png', size: 256 }),
                 roles: m.roles.cache.map(r => r.name.toUpperCase()),
-                dinero: eco.balance, // Para mostrar en la web
-                aportes: eco.aportado || 0 // Para el ranking de staff en la web
+                dinero: eco.balance, 
+                aportes: eco.aportado || 0 // Esto es lo que usas en el top staff de la web
             };
         });
         res.json(data);
