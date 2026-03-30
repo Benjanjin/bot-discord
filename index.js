@@ -30,7 +30,8 @@ function guardarDB() {
 
 function asegurarUsuario(userId) {
     if (!db[userId]) {
-        db[userId] = { balance: 0, pesca: 0, minado: 0, daily: 0 };
+        // ACTUALIZADO: Añadido "aportado" a la estructura base
+        db[userId] = { balance: 0, pesca: 0, minado: 0, daily: 0, aportado: 0 };
         guardarDB();
     }
 }
@@ -93,7 +94,11 @@ client.once(Events.ClientReady, async () => {
         new SlashCommandBuilder().setName('trabajar').setDescription('Realiza un trabajo aleatorio'),
         new SlashCommandBuilder().setName('top').setDescription('Mira el ranking de los más ricos'),
         new SlashCommandBuilder().setName('daily').setDescription('Reclama tu recompensa diaria'),
-        new SlashCommandBuilder().setName('coinflip').setDescription('Apuesta a cara o cruz').addIntegerOption(o => o.setName('apuesta').setDescription('Cantidad').setRequired(true))
+        new SlashCommandBuilder().setName('coinflip').setDescription('Apuesta a cara o cruz').addIntegerOption(o => o.setName('apuesta').setDescription('Cantidad').setRequired(true)),
+        // --- NUEVO COMANDO APORTAR REGISTRADO ---
+        new SlashCommandBuilder().setName('aportar').setDescription('Añade fondos a un usuario (Solo Staff)')
+            .addUserOption(o => o.setName('usuario').setDescription('Usuario a recibir').setRequired(true))
+            .addIntegerOption(o => o.setName('cantidad').setDescription('Cantidad a aportar').setRequired(true))
     ].map(cmd => cmd.toJSON());
     
     const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -178,8 +183,36 @@ client.on(Events.MessageCreate, async message => {
 client.on(Events.InteractionCreate, async interaction => {
     
     if (interaction.isChatInputCommand()) {
-        const { commandName, user, options } = interaction;
+        const { commandName, user, options, member } = interaction;
         asegurarUsuario(user.id);
+
+        // --- LÓGICA DEL COMANDO APORTAR (SÓLO STAFF) ---
+        if (commandName === 'aportar') {
+            if (!member.roles.cache.has(ROL_STAFF_ID) && !member.roles.cache.has(ROL_ADICIONAL_ID)) {
+                return interaction.reply({ content: "❌ No tienes permiso para usar este comando.", flags: [64] });
+            }
+
+            const receptor = options.getUser('usuario');
+            const cantidad = options.getInteger('cantidad');
+
+            if (cantidad <= 0) return interaction.reply({ content: "❌ Cantidad inválida.", flags: [64] });
+
+            asegurarUsuario(receptor.id);
+            db[receptor.id].balance += cantidad;
+            
+            // Registramos el aporte en la cuenta del Staff para la Web
+            db[user.id].aportado = (db[user.id].aportado || 0) + cantidad;
+            
+            guardarDB();
+
+            const embedAporte = new EmbedBuilder()
+                .setTitle("💰 APORTE REGISTRADO")
+                .setDescription(`El Staff **${user.username}** ha aportado **$${cantidad.toLocaleString()}** a **${receptor.username}**.`)
+                .setColor("#F1C40F")
+                .setTimestamp();
+
+            return interaction.reply({ embeds: [embedAporte] });
+        }
 
         const ecoCmds = ['pesca', 'minar', 'trabajar', 'coinflip'];
         if (ecoCmds.includes(commandName)) {
@@ -487,16 +520,21 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 });
 
-// --- ENDPOINT PARA LA WEB DEL CLAN ---
+// --- ENDPOINT ACTUALIZADO PARA LA WEB DEL CLAN ---
 app.get('/miembros', async (req, res) => {
     try {
         const guild = await client.guilds.fetch("1459675438543540399");
         const members = await guild.members.fetch();
-        const data = members.map(m => ({
-            username: m.user.username,
-            avatar: m.user.displayAvatarURL({ extension: 'png', size: 256 }),
-            roles: m.roles.cache.map(r => r.name.toUpperCase()) 
-        }));
+        const data = members.map(m => {
+            const eco = db[m.user.id] || { balance: 0, aportado: 0 };
+            return {
+                username: m.user.username,
+                avatar: m.user.displayAvatarURL({ extension: 'png', size: 256 }),
+                roles: m.roles.cache.map(r => r.name.toUpperCase()),
+                dinero: eco.balance, // Para mostrar en la web
+                aportes: eco.aportado || 0 // Para el ranking de staff en la web
+            };
+        });
         res.json(data);
     } catch (error) {
         res.status(500).json({ error: "No se pudieron obtener los miembros" });
