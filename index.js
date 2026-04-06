@@ -55,7 +55,7 @@ const CANAL_VALORACIONES_ID = "1485125020593426585";
 const CANAL_TRANSCRIPTS_ID = "1485804232870461520"; // ID Canal Transcripts
 const CATEGORIA_TICKETS = "1483589642346303638";
 const ROL_STAFF_ID = "1478799916410077295";
-const ROL_ADICIONAL_ID = "1480750004309332040"; // Rol adicional tickets
+const ROL_ADICIONAL_ID = "1490816542345269318"; // Rol adicional tickets
 // --- CONFIGURACIÓN DE LA API PARA LA WEB ---
 const express = require('express');
 const cors = require('cors');
